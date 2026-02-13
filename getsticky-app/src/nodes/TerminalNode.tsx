@@ -70,7 +70,20 @@ function TerminalNodeComponent({ data }: { data: TerminalNodeData }) {
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
-    // Write initial content
+    // Cleanup
+    return () => {
+      terminal.dispose();
+      xtermRef.current = null;
+      fitAddonRef.current = null;
+    };
+  }, []);
+
+  // Write content when data props change
+  useEffect(() => {
+    const terminal = xtermRef.current;
+    if (!terminal) return;
+
+    terminal.clear();
     if (data.command) {
       terminal.writeln(`\x1b[1;32m$\x1b[0m ${data.command}`);
     }
@@ -84,14 +97,7 @@ function TerminalNodeComponent({ data }: { data: TerminalNodeData }) {
     } else if (data.status === 'error') {
       terminal.writeln('\x1b[1;31m✗\x1b[0m Error');
     }
-
-    // Cleanup
-    return () => {
-      terminal.dispose();
-      xtermRef.current = null;
-      fitAddonRef.current = null;
-    };
-  }, []);
+  }, [data.command, data.output, data.status]);
 
   // Handle resize when expanded changes
   useEffect(() => {

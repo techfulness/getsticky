@@ -44,6 +44,9 @@ coverage/
 # Claude Code settings
 .claude/
 
+# MCP config (contains machine-specific paths)
+.mcp.json
+
 # MCP servers
 .playwright-mcp/
 

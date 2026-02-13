@@ -27,10 +27,14 @@ async function main() {
   console.log(`Starting WebSocket server on port ${WS_PORT}...`);
   const wsServer = new GetStickyWSServer(WS_PORT, db, ANTHROPIC_API_KEY);
 
-  if (ANTHROPIC_API_KEY) {
-    console.log('Claude API integration enabled');
+  // Check for API key: DB takes priority, then env
+  const dbApiKey = db.getSetting('anthropic_api_key');
+  if (dbApiKey) {
+    console.log('Claude API integration enabled (key from database)');
+  } else if (ANTHROPIC_API_KEY) {
+    console.log('Claude API integration enabled (key from environment)');
   } else {
-    console.warn('ANTHROPIC_API_KEY not set - Claude queries will be disabled');
+    console.log('No API key configured - set one via Settings in the app');
   }
 
   // Graceful shutdown

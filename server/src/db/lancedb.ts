@@ -7,6 +7,11 @@ import * as lancedb from '@lancedb/lancedb';
 import { VectorContext, ContextSource } from '../types';
 import { OpenAI } from 'openai';
 
+/** Escape a string value for use in LanceDB SQL-like filter expressions */
+function escapeFilterValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 export class LanceDBManager {
   private db: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
@@ -178,7 +183,7 @@ export class LanceDBManager {
 
     const results = await this.table!
       .search(queryVector)
-      .where(`nodeId = '${nodeId}'`)
+      .where(`nodeId = '${escapeFilterValue(nodeId)}'`)
       .limit(limit)
       .toArray();
 
@@ -200,7 +205,7 @@ export class LanceDBManager {
     // Use filter for simple retrieval
     const results = await this.table!
       .query()
-      .where(`nodeId = '${nodeId}'`)
+      .where(`nodeId = '${escapeFilterValue(nodeId)}'`)
       .toArray();
 
     return results as VectorContext[];
@@ -210,17 +215,25 @@ export class LanceDBManager {
    * Delete all contexts for a node
    */
   async deleteNodeContexts(nodeId: string): Promise<void> {
+    if (!this.enabled) {
+      return;
+    }
+
     if (!this.table) {
       await this.init();
     }
 
-    await this.table!.delete(`nodeId = '${nodeId}'`);
+    await this.table!.delete(`nodeId = '${escapeFilterValue(nodeId)}'`);
   }
 
   /**
    * Get related contexts from different nodes (for cross-node insights)
    */
   async getRelatedContexts(text: string, excludeNodeId?: string, limit: number = 10): Promise<VectorContext[]> {
+    if (!this.enabled) {
+      return [];
+    }
+
     if (!this.table) {
       await this.init();
     }
@@ -230,7 +243,7 @@ export class LanceDBManager {
     let query = this.table!.search(queryVector).limit(limit);
 
     if (excludeNodeId) {
-      query = query.where(`nodeId != '${excludeNodeId}'`);
+      query = query.where(`nodeId != '${escapeFilterValue(excludeNodeId)}'`);
     }
 
     const results = await query.toArray();
@@ -241,12 +254,16 @@ export class LanceDBManager {
    * Update context text (requires delete and re-add due to embedding change)
    */
   async updateContext(nodeId: string, oldText: string, newText: string, source: ContextSource): Promise<void> {
+    if (!this.enabled) {
+      return;
+    }
+
     if (!this.table) {
       await this.init();
     }
 
     // Delete old context
-    await this.table!.delete(`nodeId = '${nodeId}' AND text = '${oldText}'`);
+    await this.table!.delete(`nodeId = '${escapeFilterValue(nodeId)}' AND text = '${escapeFilterValue(oldText)}'`);
 
     // Add new context with new embedding
     await this.addContext({ nodeId, text: newText, source });
@@ -256,8 +273,8 @@ export class LanceDBManager {
    * Get database stats
    */
   async getStats(): Promise<{ totalContexts: number; uniqueNodes: number }> {
-    if (!this.table) {
-      await this.init();
+    if (!this.enabled || !this.table) {
+      return { totalContexts: 0, uniqueNodes: 0 };
     }
 
     const allContexts = await this.table!.query().toArray() as VectorContext[];

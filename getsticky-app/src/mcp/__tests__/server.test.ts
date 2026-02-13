@@ -46,7 +46,7 @@ describe('MCP Server', () => {
   });
 
   describe('Diagram Tools', () => {
-    test.todo('creates diagram node with Mermaid syntax');
+    test.todo('creates diagram node with title and description');
 
     test.todo('stores diagram context for Q&A');
 

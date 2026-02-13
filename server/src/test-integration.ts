@@ -36,14 +36,8 @@ async function runIntegrationTests() {
       id: uuidv4(),
       type: 'diagram',
       content: JSON.stringify({
-        mermaidSyntax: `
-          graph TD
-            A[Client] -->|Login Request| B[Auth Service]
-            B -->|Verify Credentials| C[Database]
-            C -->|User Found| B
-            B -->|Generate JWT| D[JWT Token]
-            D -->|Return to Client| A
-        `,
+        title: 'JWT Auth Flow',
+        description: 'Client → Auth Service → Database → JWT Token → Client',
       }),
       context: 'Architecture diagram showing JWT authentication flow with client, auth service, and database.',
     });
@@ -127,7 +121,7 @@ async function runIntegrationTests() {
       console.log(`   ✅ Path length: ${path.length} nodes`);
       path.forEach((node, i) => {
         const content = JSON.parse(node.content);
-        const preview = content.question || content.mermaidSyntax?.substring(0, 50) || 'N/A';
+        const preview = content.question || content.title || 'N/A';
         console.log(`   ${i + 1}. ${node.type}: ${preview}`);
       });
     }

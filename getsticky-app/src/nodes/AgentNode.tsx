@@ -7,32 +7,13 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 export type AgentNodeData = {
   question: string;
   response: string;
-  timestamp?: Date;
-  metadata?: {
-    model?: string;
-    tokensUsed?: number;
-  };
+  agentName?: string;
 };
 
 export type AgentNode = Node<AgentNodeData>;
 
-function AgentNodeComponent({ data, id }: { data: AgentNodeData; id: string }) {
+function AgentNodeComponent({ data }: { data: AgentNodeData }) {
   const [isHovered, setIsHovered] = useState(false);
-
-  const handleBranch = () => {
-    console.log('Branch conversation from node:', id);
-    // TODO: Implement branching logic
-  };
-
-  const handleEdit = () => {
-    console.log('Edit node:', id);
-    // TODO: Implement edit logic
-  };
-
-  const handleRegenerate = () => {
-    console.log('Regenerate response for node:', id);
-    // TODO: Implement regenerate logic
-  };
 
   return (
     <div
@@ -118,6 +99,31 @@ function AgentNodeComponent({ data, id }: { data: AgentNodeData; id: string }) {
           overflowY: 'auto',
         }}
       >
+        {/* Agent name label */}
+        <div
+          style={{
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#818cf8',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: '#818cf8',
+              display: 'inline-block',
+            }}
+          />
+          {data.agentName || 'Claude'}
+        </div>
         <ReactMarkdown
           components={{
             code({ className, children, ...props }) {
@@ -236,112 +242,6 @@ function AgentNodeComponent({ data, id }: { data: AgentNodeData; id: string }) {
         >
           {data.response}
         </ReactMarkdown>
-      </div>
-
-      {/* Action Buttons - Show on Hover */}
-      <div
-        style={{
-          padding: '12px 20px',
-          borderTop: '1px solid #2d3748',
-          display: 'flex',
-          gap: '8px',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          opacity: isHovered ? 1 : 0.7,
-          transition: 'opacity 0.2s ease',
-        }}
-      >
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={handleBranch}
-            style={{
-              background: 'rgba(99, 102, 241, 0.1)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              color: '#a5b4fc',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)';
-              e.currentTarget.style.borderColor = '#6366f1';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-            }}
-          >
-            Branch
-          </button>
-          <button
-            onClick={handleEdit}
-            style={{
-              background: 'transparent',
-              border: '1px solid #2d3748',
-              color: '#94a3b8',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#475569';
-              e.currentTarget.style.color = '#cbd5e0';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#2d3748';
-              e.currentTarget.style.color = '#94a3b8';
-            }}
-          >
-            Edit
-          </button>
-          <button
-            onClick={handleRegenerate}
-            style={{
-              background: 'transparent',
-              border: '1px solid #2d3748',
-              color: '#94a3b8',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#475569';
-              e.currentTarget.style.color = '#cbd5e0';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#2d3748';
-              e.currentTarget.style.color = '#94a3b8';
-            }}
-          >
-            Regenerate
-          </button>
-        </div>
-
-        {/* Metadata */}
-        {data.metadata && (
-          <div
-            style={{
-              fontSize: '11px',
-              color: '#64748b',
-              display: 'flex',
-              gap: '12px',
-            }}
-          >
-            {data.metadata.model && <span>{data.metadata.model}</span>}
-            {data.metadata.tokensUsed && (
-              <span>{data.metadata.tokensUsed} tokens</span>
-            )}
-          </div>
-        )}
       </div>
 
       <Handle

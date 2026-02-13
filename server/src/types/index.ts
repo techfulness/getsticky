@@ -2,7 +2,7 @@
  * Core types for GetSticky nodes and context storage
  */
 
-export type NodeType = 'conversation' | 'diagram' | 'terminal' | 'richtext';
+export type NodeType = 'conversation' | 'diagram' | 'diagramBox' | 'container' | 'terminal' | 'richtext';
 
 export interface Node {
   id: string;
@@ -50,17 +50,44 @@ export interface ConversationContent {
 }
 
 export interface DiagramContent {
-  mermaidSyntax: string;
+  title?: string;
+  description?: string;
   metadata?: Record<string, unknown>;
+}
+
+export interface CommentMessage {
+  id: string;
+  author: 'user' | 'claude';
+  text: string;
+  createdAt: string;
+}
+
+export interface CommentThread {
+  id: string;
+  selectedText: string;
+  from: number;  // TipTap document position
+  to: number;
+  messages: CommentMessage[];
+  status: 'open' | 'resolved';
+  createdAt: string;
 }
 
 export interface RichTextContent {
   tiptapJSON: Record<string, unknown>;
   plainText: string;
+  title?: string;
+  isReview?: boolean;
+  comments?: CommentThread[];
 }
 
 export interface TerminalContent {
   command: string;
   output: string;
   exitCode: number;
+}
+
+export interface ContainerContent {
+  title?: string;
+  width?: number;
+  height?: number;
 }

@@ -38,7 +38,7 @@ Created comprehensive test files following TDD principles (tests first, implemen
 **Node Component Tests** (31 tests):
 - `src/nodes/__tests__/AgentNode.test.tsx` - 8 tests for chat bubble nodes
 - `src/nodes/__tests__/RichTextNode.test.tsx` - 8 tests for TipTap rich text editor
-- `src/nodes/__tests__/DiagramNode.test.tsx` - 8 tests for Mermaid diagram rendering
+- `src/nodes/__tests__/DiagramNode.test.tsx` - 8 tests for diagram node (native React Flow nodes + edges)
 - `src/nodes/__tests__/TerminalNode.test.tsx` - 7 tests for xterm.js terminal integration
 
 **Database Layer Tests** (35 tests):

@@ -7,18 +7,41 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { DatabaseManager } from '../db/index';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
+import { maskApiKey } from '../utils';
+
+const VALID_WS_TYPES = new Set([
+  'create_node', 'update_node', 'delete_node',
+  'create_edge', 'delete_edge',
+  'add_context', 'search_context',
+  'ask_claude', 'comment_ask_claude',
+  'get_settings', 'update_settings',
+]);
 
 export interface WSMessage {
-  type: 'create_node' | 'update_node' | 'delete_node' | 'create_edge' | 'delete_edge' | 'add_context' | 'search_context' | 'ask_claude' | 'subscribe' | 'unsubscribe';
+  type: 'create_node' | 'update_node' | 'delete_node' | 'create_edge' | 'delete_edge' | 'add_context' | 'search_context' | 'ask_claude' | 'comment_ask_claude' | 'get_settings' | 'update_settings';
   data: any;
   id?: string;
 }
 
 export interface WSResponse {
-  type: 'success' | 'error' | 'node_created' | 'node_updated' | 'node_deleted' | 'edge_created' | 'edge_deleted' | 'context_added' | 'search_results' | 'claude_response' | 'claude_streaming';
+  type: 'success' | 'error' | 'node_created' | 'node_updated' | 'node_deleted' | 'edge_created' | 'edge_deleted' | 'context_added' | 'search_results' | 'claude_response' | 'claude_streaming' | 'comment_claude_response' | 'settings';
   data?: any;
   error?: string;
   requestId?: string;
+}
+
+/** Strip HTML tags and limit length for safe display */
+function sanitizeDisplayName(input: string): string {
+  return input.replace(/<[^>]*>/g, '').trim().slice(0, 50);
+}
+
+/** Get all settings with the API key masked */
+function getMaskedSettings(db: DatabaseManager): Record<string, string> {
+  const settings = db.getAllSettings();
+  if (settings.anthropic_api_key) {
+    settings.anthropic_api_key = maskApiKey(settings.anthropic_api_key);
+  }
+  return settings;
 }
 
 export class GetStickyWSServer {
@@ -31,9 +54,11 @@ export class GetStickyWSServer {
     this.db = db;
     this.wss = new WebSocketServer({ port });
 
-    // Initialize Anthropic client if API key is provided
-    if (anthropicApiKey) {
-      this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
+    // Try to load API key: DB first, then env fallback
+    const dbApiKey = this.db.getSetting('anthropic_api_key');
+    const apiKey = dbApiKey || anthropicApiKey;
+    if (apiKey) {
+      this.anthropic = new Anthropic({ apiKey });
     }
 
     this.setupServer();
@@ -46,7 +71,23 @@ export class GetStickyWSServer {
 
       ws.on('message', async (data: string) => {
         try {
-          const message: WSMessage = JSON.parse(data.toString());
+          const parsed = JSON.parse(data.toString());
+
+          // Validate message shape
+          if (!parsed || typeof parsed.type !== 'string') {
+            this.sendError(ws, 'Invalid message: missing "type" field');
+            return;
+          }
+          if (!VALID_WS_TYPES.has(parsed.type)) {
+            this.sendError(ws, `Unknown message type: ${parsed.type}`, parsed.id);
+            return;
+          }
+          if (parsed.data !== undefined && typeof parsed.data !== 'object') {
+            this.sendError(ws, 'Invalid message: "data" must be an object', parsed.id);
+            return;
+          }
+
+          const message: WSMessage = parsed;
           await this.handleMessage(ws, message);
         } catch (error: any) {
           this.sendError(ws, error.message);
@@ -88,13 +129,18 @@ export class GetStickyWSServer {
     try {
       switch (message.type) {
         case 'create_node': {
-          const { type, content, context, parent_id } = message.data;
+          const { type, content, data: nodeData, context, parent_id, parentId, position } = message.data;
+          // Support both MCP format (content) and frontend format (data + position)
+          let nodeContent = content || nodeData || {};
+          if (position && typeof nodeContent === 'object') {
+            nodeContent = { ...nodeContent, position };
+          }
           const node = await this.db.createNode({
             id: uuidv4(),
             type,
-            content: JSON.stringify(content),
+            content: JSON.stringify(nodeContent),
             context: context || '',
-            parent_id: parent_id || null,
+            parent_id: parent_id || parentId || null,
           });
 
           // Broadcast to all clients
@@ -107,10 +153,22 @@ export class GetStickyWSServer {
         }
 
         case 'update_node': {
-          const { id, content, context } = message.data;
+          const { id, content, data: partialData, context, position } = message.data;
           const updates: any = {};
 
-          if (content) updates.content = JSON.stringify(content);
+          if (content) {
+            // Full content replacement
+            updates.content = JSON.stringify(content);
+          } else if (partialData || position) {
+            // Partial update: merge into existing content
+            const existing = this.db.getNode(id);
+            if (existing) {
+              const existingContent = JSON.parse(existing.content);
+              const merged = { ...existingContent, ...partialData };
+              if (position) merged.position = position;
+              updates.content = JSON.stringify(merged);
+            }
+          }
           if (context) updates.context = context;
 
           const node = await this.db.updateNode(id, updates);
@@ -146,11 +204,11 @@ export class GetStickyWSServer {
         }
 
         case 'create_edge': {
-          const { source_id, target_id, label } = message.data;
+          const { source_id, target_id, source, target, label } = message.data;
           const edge = this.db.createEdge({
             id: uuidv4(),
-            source_id,
-            target_id,
+            source_id: source_id || source,
+            target_id: target_id || target,
             label: label || null,
           });
 
@@ -208,6 +266,51 @@ export class GetStickyWSServer {
           break;
         }
 
+        case 'comment_ask_claude': {
+          await this.handleCommentClaudeQuery(ws, message.data, requestId);
+          break;
+        }
+
+        case 'get_settings': {
+          this.send(ws, {
+            type: 'settings',
+            data: getMaskedSettings(this.db),
+            requestId,
+          });
+          break;
+        }
+
+        case 'update_settings': {
+          const { agentName, apiKey } = message.data;
+
+          if (agentName !== undefined) {
+            const sanitized = sanitizeDisplayName(agentName);
+            if (sanitized.length === 0) {
+              this.sendError(ws, 'Agent name cannot be empty', requestId);
+              return;
+            }
+            this.db.setSetting('agent_name', sanitized);
+          }
+
+          if (apiKey !== undefined && apiKey !== '') {
+            // Basic format validation
+            if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
+              this.sendError(ws, 'Invalid API key format. Key should start with "sk-" and be at least 20 characters.', requestId);
+              return;
+            }
+            this.db.setSetting('anthropic_api_key', apiKey);
+            this.anthropic = new Anthropic({ apiKey });
+            console.log('Anthropic client reinitialized with new API key');
+          }
+
+          this.broadcast({
+            type: 'settings',
+            data: getMaskedSettings(this.db),
+            requestId,
+          });
+          break;
+        }
+
         default:
           this.sendError(ws, `Unknown message type: ${message.type}`, requestId);
       }
@@ -240,6 +343,42 @@ export class GetStickyWSServer {
   }
 
   /**
+   * Create an AgentNode from a Claude response, optionally link to parent, and broadcast.
+   */
+  private async createAndBroadcastAgentNode(
+    question: string,
+    response: string,
+    parent_id: string | undefined,
+    node_position: { x: number; y: number } | undefined,
+    requestId?: string,
+  ): Promise<void> {
+    const agentNode = await this.db.createNode({
+      id: uuidv4(),
+      type: 'conversation',
+      content: JSON.stringify({ question, response, position: node_position }),
+      context: response,
+      parent_id: parent_id || null,
+    });
+
+    if (parent_id) {
+      const edge = this.db.createEdge({
+        id: uuidv4(),
+        source_id: parent_id,
+        target_id: agentNode.id,
+        label: 'response',
+      });
+      this.broadcast({ type: 'edge_created', data: edge, requestId });
+    }
+
+    const agentName = this.db.getSetting('agent_name') || 'Claude';
+    this.broadcast({
+      type: 'claude_response',
+      data: { node: agentNode, complete: true, agentName },
+      requestId,
+    });
+  }
+
+  /**
    * Handle Claude query: send question to Claude API, create AgentNode with response
    */
   private async handleClaudeQuery(
@@ -258,7 +397,7 @@ export class GetStickyWSServer {
       return;
     }
 
-    const { question, parent_id, context, node_position, stream = false } = data;
+    const { question, parent_id, context, node_position, stream: useStream = false } = data;
 
     try {
       // Get inherited context if parent_id is provided
@@ -268,13 +407,11 @@ export class GetStickyWSServer {
         fullContext = inheritedContext ? `${inheritedContext}\n\n${context || ''}` : context || '';
       }
 
-      // Build system message with context
       const systemMessage = fullContext
         ? `You are a helpful AI assistant. Here is the conversation context:\n\n${fullContext}`
         : 'You are a helpful AI assistant.';
 
-      if (stream) {
-        // Streaming response
+      if (useStream) {
         const stream = await this.anthropic.messages.stream({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4096,
@@ -283,10 +420,8 @@ export class GetStickyWSServer {
         });
 
         let fullResponse = '';
-
         stream.on('text', (text) => {
           fullResponse += text;
-          // Send streaming chunks to client
           this.send(ws, {
             type: 'claude_streaming',
             data: { chunk: text, complete: false },
@@ -295,47 +430,8 @@ export class GetStickyWSServer {
         });
 
         await stream.finalMessage();
-
-        // Create AgentNode with full response
-        const agentNode = await this.db.createNode({
-          id: uuidv4(),
-          type: 'conversation',
-          content: JSON.stringify({
-            question,
-            response: fullResponse,
-            position: node_position,
-          }),
-          context: fullResponse,
-          parent_id: parent_id || null,
-        });
-
-        // Create edge from parent to agent node if parent exists
-        if (parent_id) {
-          const edge = this.db.createEdge({
-            id: uuidv4(),
-            source_id: parent_id,
-            target_id: agentNode.id,
-            label: 'response',
-          });
-
-          this.broadcast({
-            type: 'edge_created',
-            data: edge,
-            requestId,
-          });
-        }
-
-        // Broadcast the completed node
-        this.broadcast({
-          type: 'claude_response',
-          data: {
-            node: agentNode,
-            complete: true,
-          },
-          requestId,
-        });
+        await this.createAndBroadcastAgentNode(question, fullResponse, parent_id, node_position, requestId);
       } else {
-        // Non-streaming response
         const message = await this.anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4096,
@@ -344,48 +440,74 @@ export class GetStickyWSServer {
         });
 
         const response = message.content[0].type === 'text' ? message.content[0].text : '';
-
-        // Create AgentNode with response
-        const agentNode = await this.db.createNode({
-          id: uuidv4(),
-          type: 'conversation',
-          content: JSON.stringify({
-            question,
-            response,
-            position: node_position,
-          }),
-          context: response,
-          parent_id: parent_id || null,
-        });
-
-        // Create edge from parent to agent node if parent exists
-        if (parent_id) {
-          const edge = this.db.createEdge({
-            id: uuidv4(),
-            source_id: parent_id,
-            target_id: agentNode.id,
-            label: 'response',
-          });
-
-          this.broadcast({
-            type: 'edge_created',
-            data: edge,
-            requestId,
-          });
-        }
-
-        // Broadcast the node creation
-        this.broadcast({
-          type: 'claude_response',
-          data: {
-            node: agentNode,
-            complete: true,
-          },
-          requestId,
-        });
+        await this.createAndBroadcastAgentNode(question, response, parent_id, node_position, requestId);
       }
     } catch (error: any) {
       console.error('Claude API error:', error);
+      this.sendError(ws, `Claude API error: ${error.message}`, requestId);
+    }
+  }
+
+  /**
+   * Handle Claude query scoped to a comment thread in a review node
+   */
+  private async handleCommentClaudeQuery(
+    ws: WebSocket,
+    data: {
+      node_id: string;
+      thread_id: string;
+      selected_text: string;
+      messages: { author: string; text: string }[];
+    },
+    requestId?: string
+  ): Promise<void> {
+    if (!this.anthropic) {
+      this.sendError(ws, 'Claude API not configured. Set ANTHROPIC_API_KEY in environment.', requestId);
+      return;
+    }
+
+    const { node_id, thread_id, selected_text, messages } = data;
+
+    try {
+      // Load the review node's context
+      const node = this.db.getNode(node_id);
+      const reviewContext = node?.context || '';
+
+      // Build conversation messages for Claude
+      const systemMessage = `You are reviewing code/text with a user. Here is the full review context:\n\n${reviewContext}\n\nThe user has highlighted the following text and is discussing it with you:\n\n"${selected_text}"`;
+
+      const conversationMessages = messages.map((msg) => ({
+        role: msg.author === 'user' ? 'user' as const : 'assistant' as const,
+        content: msg.text,
+      }));
+
+      const response = await this.anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system: systemMessage,
+        messages: conversationMessages,
+      });
+
+      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+
+      const commentAgentName = this.db.getSetting('agent_name') || 'Claude';
+      this.send(ws, {
+        type: 'comment_claude_response',
+        data: {
+          node_id,
+          thread_id,
+          agentName: commentAgentName,
+          message: {
+            id: `msg-${Date.now()}`,
+            author: 'claude',
+            text: responseText,
+            createdAt: new Date().toISOString(),
+          },
+        },
+        requestId,
+      });
+    } catch (error: any) {
+      console.error('Comment Claude API error:', error);
       this.sendError(ws, `Claude API error: ${error.message}`, requestId);
     }
   }

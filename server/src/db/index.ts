@@ -206,9 +206,11 @@ export class DatabaseManager {
    */
   getConversationPath(nodeId: string): Node[] {
     const path: Node[] = [];
+    const visited = new Set<string>();
     let currentNode = this.sqlite.getNode(nodeId);
 
-    while (currentNode) {
+    while (currentNode && !visited.has(currentNode.id)) {
+      visited.add(currentNode.id);
       path.unshift(currentNode);
       currentNode = currentNode.parent_id ? this.sqlite.getNode(currentNode.parent_id) : null;
     }
@@ -233,6 +235,22 @@ export class DatabaseManager {
       }, {} as Record<string, number>),
       ...vectorStats,
     };
+  }
+
+  /**
+   * Settings operations
+   */
+
+  getSetting(key: string): string | null {
+    return this.sqlite.getSetting(key);
+  }
+
+  setSetting(key: string, value: string): void {
+    this.sqlite.setSetting(key, value);
+  }
+
+  getAllSettings(): Record<string, string> {
+    return this.sqlite.getAllSettings();
   }
 
   /**

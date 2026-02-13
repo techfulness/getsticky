@@ -65,60 +65,34 @@ const RichTextNode = ({ data, id }) => {
 
 ### 2. 📊 Diagram Node — "The Whiteboard"
 
-**The question:** Do we need Excalidraw, or is there something lighter?
+**The insight:** React Flow IS a diagramming tool. For architecture diagrams, the React Flow canvas already shows nodes and edges. Claude Code creates service nodes, connects them with edges — that IS the diagram. No separate diagram library needed.
 
-**It depends on what "diagram" means for GetSticky:**
-
-#### Option A: Mermaid.js (Agent-generated diagrams)
-- **License:** MIT ✅
-- **Stars:** 78K+
-- **What it is:** Text-to-diagram renderer. You write `graph TD; A-->B;` and get a beautiful SVG.
-- **Why this might be all you need:** Claude already speaks Mermaid fluently. If the main use case is "Claude generates an architecture diagram and the user discusses it," Mermaid is perfect. The agent writes Mermaid syntax → renders in the node → user asks questions about it → context is stored.
-- **React wrapper:** `mermaid-js/react-wrapper` (official)
-- **Supports:** Flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, Gantt charts, C4 architecture diagrams, and more.
-
+**How it works as a node:**
 ```tsx
 const DiagramNode = ({ data, id }) => {
   return (
     <div className="diagram-node">
-      <Handle type="target" position={Position.Top} />
-      
-      {/* Mermaid renders the diagram */}
-      <MermaidDiagram>{data.mermaidSyntax}</MermaidDiagram>
-      
-      {/* Chat overlay for discussing the diagram */}
-      <DiagramChat 
-        context={data.context}
-        onAsk={(q) => askAboutDiagram(id, q)} 
-      />
-      
-      {/* Edit the mermaid source directly */}
-      <MermaidEditor 
-        value={data.mermaidSyntax}
-        onChange={(syntax) => updateDiagram(id, syntax)} 
-      />
-      
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="target" position={Position.Left} />
+
+      {/* Title and description */}
+      <div className="diagram-header">{data.title}</div>
+      <div className="diagram-description">{data.description}</div>
+
+      {/* Context for Q&A */}
+      {data.context && <div className="diagram-context">{data.context}</div>}
+
+      {/* Ask about this diagram */}
+      <button onClick={() => askAboutDiagram(id)}>Ask about this diagram</button>
+
+      <Handle type="source" position={Position.Right} />
     </div>
   );
 };
 ```
 
-**The power play:** Claude Code generates a Mermaid diagram of your codebase architecture. It renders as a node on the canvas. You click a service in the diagram and ask "what does this do?" — the agent reads the stored context (not re-parsing the codebase) and responds in a new branched conversation node.
+**The power play:** Claude Code creates diagram nodes for each service/component in your architecture and connects them with labeled edges. You click a node and ask "what does this do?" — the agent reads the stored context (not re-parsing the codebase) and responds in a new branched conversation node. Since these are native React Flow nodes, they're fully draggable, editable, and interactive.
 
-#### Option B: Excalidraw (Free-form drawing)
-- **License:** MIT ✅
-- Use when users need to draw freely — sketch UIs, annotate, brainstorm
-- Heavier dependency, known embedding bugs with React Flow (coordinate transforms)
-- Could be a v2 addition, not needed for hackathon MVP
-
-#### Option C: React Flow itself (Node diagrams)
-- Here's the meta insight: **React Flow IS a diagramming tool**
-- For architecture diagrams, your React Flow canvas already shows nodes and edges
-- Claude Code creates service nodes, connects them with edges — that IS the diagram
-- No separate diagram library needed for this use case
-
-**Recommendation for hackathon:** Mermaid for agent-generated diagrams + React Flow's native graph for interactive architecture. Add Excalidraw post-hackathon.
+**Future option: Excalidraw** — For free-form drawing (sketch UIs, annotate, brainstorm). Heavier dependency with known embedding bugs in React Flow. Could be a v2 addition.
 
 ---
 
@@ -232,7 +206,7 @@ const results = await table
 |-------|---------|---------|---------|
 | **Canvas** | `@xyflow/react` | MIT | Infinite canvas, node graph, edges |
 | **Rich Text** | `@tiptap/react` + extensions | MIT | Notion-style block editor in nodes |
-| **Diagrams** | `mermaid` + React wrapper | MIT | Agent-generated diagrams |
+| **Diagrams** | Native React Flow nodes + edges | MIT | Architecture diagrams via the canvas itself |
 | **Terminal** | `xterm.js` + `xterm-addon-fit` | MIT | Terminal emulation in nodes |
 | **Markdown** | `react-markdown` | MIT | Render Claude responses |
 | **Code highlight** | `shiki` or `highlight.js` | MIT/BSD | Syntax highlighting |
@@ -251,10 +225,10 @@ const results = await table
 │                                                                 │
 │  ┌──────────────┐     ┌──────────────┐     ┌───────────────┐  │
 │  │ RichTextNode │────▶│ AgentNode    │────▶│ DiagramNode   │  │
-│  │ (TipTap)     │     │ (response)   │     │ (Mermaid)     │  │
+│  │ (TipTap)     │     │ (response)   │     │ (React Flow)  │  │
 │  │              │     │              │     │               │  │
-│  │ User writes  │     │ Claude       │     │ graph TD;     │  │
-│  │ a question   │     │ responds     │     │ A-->B;        │  │
+│  │ User writes  │     │ Claude       │     │ Native nodes  │  │
+│  │ a question   │     │ responds     │     │ + edges       │  │
 │  └──────────────┘     └──────┬───────┘     └───────┬───────┘  │
 │                              │ branch              │           │
 │                     ┌────────▼───────┐    ┌────────▼────────┐ │
@@ -305,7 +279,7 @@ const results = await table
 - This is the money shot for the demo
 
 ### Days 5-6: Diagrams + Context
-- `DiagramNode` with Mermaid: agent generates diagram → renders in node
+- `DiagramNode` using native React Flow nodes + edges for architecture diagrams
 - Per-node context storage in SQLite
 - "Ask about this diagram" — click diagram node, ask question, get contextualized answer
 - If time: LanceDB integration for semantic search across canvas

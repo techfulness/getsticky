@@ -1,68 +1,25 @@
 import { Handle, Position, type Node } from '@xyflow/react';
-import { memo, useEffect, useRef, useState } from 'react';
-import mermaid from 'mermaid';
+import { memo, useState } from 'react';
 
 export type DiagramNodeData = {
   title?: string;
-  mermaidCode: string;
+  description?: string;
   context?: string;
   editable?: boolean;
 };
 
 export type DiagramNode = Node<DiagramNodeData>;
 
-// Initialize mermaid with dark theme
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'dark',
-  themeVariables: {
-    primaryColor: '#6366f1',
-    primaryTextColor: '#e2e8f0',
-    primaryBorderColor: '#4f46e5',
-    lineColor: '#6366f1',
-    secondaryColor: '#8b5cf6',
-    tertiaryColor: '#1a202c',
-    background: '#0f1419',
-    mainBkg: '#1a202c',
-    secondBkg: '#2d3748',
-    border1: '#4a5568',
-    border2: '#2d3748',
-    note: '#fbbf24',
-    noteBkgColor: '#1a202c',
-    noteTextColor: '#e2e8f0',
-    noteBorderColor: '#fbbf24',
-    textColor: '#e2e8f0',
-    fontSize: '14px',
-  },
-});
-
+/**
+ * DiagramNode - Architecture diagrams via native React Flow nodes + edges.
+ *
+ * React Flow IS the diagramming tool. This node serves as a labeled container
+ * that can be connected to other nodes via edges to form architecture diagrams,
+ * flowcharts, etc. No separate diagram library needed.
+ */
 function DiagramNodeComponent({ data, id }: { data: DiagramNodeData; id: string }) {
-  const diagramRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showCode, setShowCode] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const renderDiagram = async () => {
-      if (!diagramRef.current || !data.mermaidCode) return;
-
-      try {
-        setError(null);
-        const { svg } = await mermaid.render(`diagram-${id}`, data.mermaidCode);
-        diagramRef.current.innerHTML = svg;
-      } catch (err) {
-        console.error('Mermaid rendering error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to render diagram');
-      }
-    };
-
-    renderDiagram();
-  }, [data.mermaidCode, id]);
-
-  const handleExpand = () => {
-    setIsExpanded(!isExpanded);
-  };
 
   const handleAskAboutDiagram = () => {
     console.log('Ask about diagram:', id);
@@ -78,8 +35,8 @@ function DiagramNodeComponent({ data, id }: { data: DiagramNodeData; id: string 
         border: '1px solid #2d3748',
         borderRadius: '12px',
         padding: '0',
-        width: isExpanded ? '800px' : '500px',
-        maxWidth: isExpanded ? '800px' : '500px',
+        width: isExpanded ? '500px' : '300px',
+        maxWidth: isExpanded ? '500px' : '300px',
         boxShadow: isHovered
           ? '0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(34, 211, 238, 0.3)'
           : '0 4px 12px rgba(0, 0, 0, 0.3)',
@@ -130,118 +87,50 @@ function DiagramNodeComponent({ data, id }: { data: DiagramNodeData; id: string 
               display: 'inline-block',
             }}
           />
-          {data.title || 'Architecture Diagram'}
+          {data.title || 'Diagram'}
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setShowCode(!showCode)}
-            style={{
-              background: showCode ? 'rgba(34, 211, 238, 0.2)' : 'transparent',
-              border: '1px solid #2d3748',
-              color: showCode ? '#67e8f9' : '#94a3b8',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#475569';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#2d3748';
-            }}
-            title="Toggle source code"
-          >
-            {'</>'}
-          </button>
-          <button
-            onClick={handleExpand}
-            style={{
-              background: 'transparent',
-              border: '1px solid #2d3748',
-              color: '#94a3b8',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#475569';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#2d3748';
-            }}
-            title={isExpanded ? 'Collapse' : 'Expand'}
-          >
-            {isExpanded ? '⊟' : '⊞'}
-          </button>
-        </div>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          style={{
+            background: 'transparent',
+            border: '1px solid #2d3748',
+            color: '#94a3b8',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#475569';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#2d3748';
+          }}
+          title={isExpanded ? 'Collapse' : 'Expand'}
+        >
+          {isExpanded ? '⊟' : '⊞'}
+        </button>
       </div>
 
-      {/* Diagram or Code View */}
-      <div
-        style={{
-          padding: '20px',
-          minHeight: '200px',
-          maxHeight: isExpanded ? '600px' : '400px',
-          overflowY: 'auto',
-          overflowX: 'auto',
-        }}
-      >
-        {showCode ? (
-          <pre
-            style={{
-              background: '#0d1117',
-              border: '1px solid #2d3748',
-              borderRadius: '8px',
-              padding: '16px',
-              fontSize: '13px',
-              lineHeight: '1.6',
-              color: '#e2e8f0',
-              fontFamily: 'Monaco, Courier New, monospace',
-              margin: 0,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {data.mermaidCode}
-          </pre>
-        ) : error ? (
-          <div
-            style={{
-              padding: '20px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '8px',
-              color: '#fca5a5',
-              fontSize: '13px',
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: '8px' }}>
-              Failed to render diagram
-            </div>
-            <div style={{ fontSize: '12px', color: '#f87171' }}>{error}</div>
-          </div>
-        ) : (
-          <div
-            ref={diagramRef}
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '150px',
-            }}
-          />
-        )}
-      </div>
+      {/* Description */}
+      {data.description && (
+        <div
+          style={{
+            padding: '16px 20px',
+            fontSize: '13px',
+            color: '#e2e8f0',
+            lineHeight: '1.6',
+          }}
+        >
+          {data.description}
+        </div>
+      )}
 
       {/* Context Info */}
-      {data.context && !showCode && (
+      {data.context && isExpanded && (
         <div
           style={{
             padding: '12px 20px',
@@ -296,32 +185,6 @@ function DiagramNodeComponent({ data, id }: { data: DiagramNodeData; id: string 
         >
           Ask about this diagram
         </button>
-
-        {data.editable && (
-          <button
-            style={{
-              background: 'transparent',
-              border: '1px solid #2d3748',
-              color: '#94a3b8',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#475569';
-              e.currentTarget.style.color = '#cbd5e0';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#2d3748';
-              e.currentTarget.style.color = '#94a3b8';
-            }}
-          >
-            Edit
-          </button>
-        )}
       </div>
 
       <Handle

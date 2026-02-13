@@ -16,7 +16,7 @@ React + Vite + React Flow application for the GetSticky v3 project.
 ### Technologies
 - **Canvas**: @xyflow/react - Infinite canvas with node graph
 - **Rich Text**: @tiptap/react - Notion-style block editor
-- **Diagrams**: mermaid - Agent-generated diagrams
+- **Diagrams**: Native React Flow nodes + edges (React Flow IS the diagramming tool)
 - **Terminal**: @xterm/xterm - Terminal emulation
 - **Markdown**: react-markdown - Render Claude responses
 - **Code Highlight**: shiki, lowlight - Syntax highlighting
@@ -63,5 +63,5 @@ The scaffold is complete with:
 Implement the 4 core node types:
 1. **AgentNode** - Chat bubble showing Claude responses
 2. **RichTextNode** - TipTap-based rich text editing
-3. **DiagramNode** - Mermaid diagram rendering
+3. **DiagramNode** - Architecture diagrams via native React Flow nodes + edges
 4. **TerminalNode** - xterm.js terminal emulation

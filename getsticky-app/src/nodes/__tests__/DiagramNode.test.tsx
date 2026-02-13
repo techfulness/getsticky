@@ -4,32 +4,30 @@ import { render, screen } from '@testing-library/react';
 /**
  * DiagramNode - The Whiteboard
  *
- * Uses Mermaid.js for agent-generated diagrams:
- * - Flowcharts, sequence diagrams, class diagrams
- * - State diagrams, ER diagrams, Gantt charts
- * - C4 architecture diagrams
+ * Uses native React Flow nodes and edges for diagrams.
+ * React Flow IS the diagramming tool — no separate library needed.
  *
  * Features:
- * - Renders Mermaid syntax as SVG
- * - Chat overlay for discussing the diagram
- * - Mermaid source editor
+ * - Architecture diagrams as connected React Flow nodes
+ * - Draggable, interactive diagram elements
  * - Context storage for diagram explanations
+ * - Ask about diagram for Q&A
  */
 
 describe('DiagramNode', () => {
-  test.todo('renders Mermaid diagram from syntax');
+  test.todo('renders diagram with title and description');
 
   test.todo('displays diagram chat overlay');
 
-  test.todo('allows editing Mermaid source');
-
-  test.todo('updates diagram when syntax changes');
+  test.todo('allows editing diagram description');
 
   test.todo('stores diagram context for questions');
 
-  test.todo('handles invalid Mermaid syntax gracefully');
+  test.todo('handles missing title gracefully');
 
   test.todo('provides handles for React Flow connections');
 
-  test.todo('supports different diagram types (flowchart, sequence, etc)');
+  test.todo('supports expand/collapse');
+
+  test.todo('shows ask about diagram button');
 });

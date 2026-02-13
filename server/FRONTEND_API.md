@@ -240,11 +240,14 @@ ws.send(JSON.stringify({
 ```
 
 ### Diagram Node
+Diagram nodes are rendered as native React Flow nodes and edges on the canvas. No separate diagram library is needed — React Flow IS the diagramming tool. Claude creates nodes and connects them with edges to form architecture diagrams, flowcharts, etc.
+
 ```typescript
 {
   type: 'diagram',
   content: {
-    mermaidSyntax: string;
+    title?: string;
+    description?: string;
     metadata?: Record<string, unknown>;
   }
 }

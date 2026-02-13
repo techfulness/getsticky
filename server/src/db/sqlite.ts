@@ -65,6 +65,15 @@ export class SQLiteDB {
       )
     `);
 
+    // Create settings table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes for performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
@@ -218,11 +227,13 @@ export class SQLiteDB {
       return node?.context || '';
     }
 
-    // Recursively build context from parent chain
+    // Build context from parent chain with cycle detection
     const contexts: string[] = [];
+    const visited = new Set<string>();
     let currentNode: Node | null = node;
 
-    while (currentNode) {
+    while (currentNode && !visited.has(currentNode.id)) {
+      visited.add(currentNode.id);
       if (currentNode.context) {
         contexts.unshift(currentNode.context);
       }
@@ -261,6 +272,35 @@ export class SQLiteDB {
   getChildNodes(parentId: string): Node[] {
     const stmt = this.db.prepare('SELECT * FROM nodes WHERE parent_id = ?');
     return stmt.all(parentId) as Node[];
+  }
+
+  /**
+   * Settings operations
+   *
+   * WARNING: Settings values (including API keys) are stored as plaintext in
+   * the local SQLite database. Do not share or commit the DB file. In future,
+   * consider using the OS keychain (e.g. keytar) for sensitive credentials.
+   */
+
+  getSetting(key: string): string | null {
+    const stmt = this.db.prepare('SELECT value FROM settings WHERE key = ?');
+    const row = stmt.get(key) as { value: string } | undefined;
+    return row?.value ?? null;
+  }
+
+  setSetting(key: string, value: string): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES (@key, @value, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = @value, updated_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run({ key, value });
+  }
+
+  getAllSettings(): Record<string, string> {
+    const stmt = this.db.prepare('SELECT key, value FROM settings');
+    const rows = stmt.all() as { key: string; value: string }[];
+    return Object.fromEntries(rows.map((r) => [r.key, r.value]));
   }
 
   /**

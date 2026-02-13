@@ -4,8 +4,12 @@ import {
   Background,
   Controls,
   MiniMap,
+  applyNodeChanges,
+  applyEdgeChanges,
   type Connection,
   type NodeTypes,
+  type NodeChange,
+  type EdgeChange,
   type Node,
   type Edge,
   ReactFlowProvider,
@@ -15,18 +19,99 @@ import ExampleNode from './nodes/ExampleNode';
 import AgentNode from './nodes/AgentNode';
 import RichTextNode from './nodes/RichTextNode';
 import DiagramNode from './nodes/DiagramNode';
+import DiagramBoxNode from './nodes/DiagramBoxNode';
+import ContainerNode from './nodes/ContainerNode';
 import TerminalNode from './nodes/TerminalNode';
+import NodeErrorBoundary from './components/NodeErrorBoundary';
 import { getAPI } from './lib/api';
 import { APIProvider } from './contexts/APIContext';
+import CanvasToolbar from './components/CanvasToolbar';
 import './App.css';
 
+// Wrap each node component in an error boundary so one crash doesn't take down the canvas
+function withErrorBoundary<P extends { id: string }>(
+  WrappedComponent: React.ComponentType<P>,
+): React.ComponentType<P> {
+  const Wrapper = (props: P) => (
+    <NodeErrorBoundary nodeId={props.id}>
+      <WrappedComponent {...props} />
+    </NodeErrorBoundary>
+  );
+  Wrapper.displayName = `WithErrorBoundary(${WrappedComponent.displayName || WrappedComponent.name || 'Component'})`;
+  return Wrapper;
+}
+
 const nodeTypes: NodeTypes = {
-  exampleNode: ExampleNode,
-  agentNode: AgentNode,
-  richTextNode: RichTextNode,
-  diagramNode: DiagramNode,
-  terminalNode: TerminalNode,
+  exampleNode: withErrorBoundary(ExampleNode),
+  agentNode: withErrorBoundary(AgentNode),
+  richTextNode: withErrorBoundary(RichTextNode),
+  diagramNode: withErrorBoundary(DiagramNode),
+  diagramBox: withErrorBoundary(DiagramBoxNode),
+  containerNode: withErrorBoundary(ContainerNode as any),
+  terminalNode: withErrorBoundary(TerminalNode),
 };
+
+const nodeTypeMap: Record<string, string> = {
+  conversation: 'agentNode',
+  richtext: 'richTextNode',
+  diagram: 'diagramNode',
+  diagramBox: 'diagramBox',
+  container: 'containerNode',
+  terminal: 'terminalNode',
+};
+
+// React Flow requires parent nodes to appear before children in the array
+function sortNodesParentFirst(nodes: Node[]): Node[] {
+  const parentIds = new Set(nodes.filter((n) => n.type === 'containerNode').map((n) => n.id));
+  const parents: Node[] = [];
+  const children: Node[] = [];
+  const rest: Node[] = [];
+
+  for (const node of nodes) {
+    if (parentIds.has(node.id)) {
+      parents.push(node);
+    } else if (node.parentId && parentIds.has(node.parentId)) {
+      children.push(node);
+    } else {
+      rest.push(node);
+    }
+  }
+
+  return [...parents, ...rest, ...children];
+}
+
+// Convert a DB node to a React Flow node, applying container parent-child relationships
+function dbNodeToFlowNode(dbNode: any, allDbNodes?: any[]): Node {
+  const content = typeof dbNode.content === 'string' ? JSON.parse(dbNode.content) : dbNode.content;
+  const flowType = nodeTypeMap[dbNode.type] || 'agentNode';
+
+  const node: Node = {
+    id: dbNode.id,
+    type: flowType,
+    position: content.position || { x: Math.random() * 500 + 200, y: Math.random() * 300 + 200 },
+    data: content,
+  };
+
+  // Container nodes get explicit dimensions
+  if (flowType === 'containerNode') {
+    node.style = {
+      width: content.width || 600,
+      height: content.height || 400,
+    };
+  }
+
+  // If this node has a parent that is a container, set up grouping
+  if (dbNode.parent_id && allDbNodes) {
+    const parent = allDbNodes.find((n: any) => n.id === dbNode.parent_id);
+    if (parent && parent.type === 'container') {
+      node.parentId = dbNode.parent_id;
+      node.extent = 'parent';
+      node.expandParent = true;
+    }
+  }
+
+  return node;
+}
 
 // Initial demo nodes
 const demoNodes: Node[] = [
@@ -48,6 +133,9 @@ function AppContent() {
   const [edges, setEdges] = useState<Edge[]>(demoEdges);
   const apiRef = useRef(getAPI());
   const [isConnected, setIsConnected] = useState(false);
+  const [agentName, setAgentName] = useState('Claude');
+  const [maskedApiKey, setMaskedApiKey] = useState('');
+  const agentNameRef = useRef(agentName);
 
   // Connect to WebSocket on mount
   useEffect(() => {
@@ -58,8 +146,8 @@ function AppContent() {
       console.log('[App] Connected to backend');
       setIsConnected(true);
 
-      // Request initial state
-      api.requestInitialState();
+      // Request settings (initial state arrives automatically on WS connect)
+      api.getSettings();
     }).catch((error) => {
       console.error('[App] Failed to connect:', error);
     });
@@ -68,24 +156,38 @@ function AppContent() {
     const unsubNodeCreated = api.on('node_created', (data: any) => {
       console.log('[App] node_created:', data);
 
-      const newNode: Node = {
-        id: data.id || `node-${Date.now()}`,
-        type: data.nodeType || 'agentNode',
-        position: data.position || { x: Math.random() * 500 + 200, y: Math.random() * 300 + 200 },
-        data: data.data || {},
-      };
+      const dbNode = data.data;
 
-      setNodes((prev) => [...prev, newNode]);
+      setNodes((prev) => {
+        // Build a minimal allDbNodes-like array so parent lookup works
+        // We need to check if the parent is already in our nodes list
+        const existingAsDb = prev.map((n) => ({
+          id: n.id,
+          type: n.type === 'containerNode' ? 'container' : n.type,
+        }));
+        const newNode = dbNodeToFlowNode(dbNode, [...existingAsDb, dbNode]);
+        return sortNodesParentFirst([...prev, newNode]);
+      });
     });
 
     // Handle node_updated events
     const unsubNodeUpdated = api.on('node_updated', (data: any) => {
       console.log('[App] node_updated:', data);
 
+      // The WS server broadcasts the full DB node — parse content JSON
+      const dbNode = data.data || data;
+      const updatedContent = typeof dbNode.content === 'string'
+        ? JSON.parse(dbNode.content)
+        : dbNode.content;
+
       setNodes((prev) =>
         prev.map((node) =>
-          node.id === data.id
-            ? { ...node, data: { ...node.data, ...data.data } }
+          node.id === dbNode.id
+            ? {
+                ...node,
+                data: { ...node.data, ...updatedContent },
+                position: updatedContent.position || node.position,
+              }
             : node
         )
       );
@@ -95,15 +197,38 @@ function AppContent() {
     const unsubEdgeCreated = api.on('edge_created', (data: any) => {
       console.log('[App] edge_created:', data);
 
+      const edgeData = data.data || data;
       const newEdge: Edge = {
-        id: data.id || `edge-${Date.now()}`,
-        source: data.source,
-        target: data.target,
-        animated: data.animated,
-        style: data.style,
+        id: edgeData.id || `edge-${Date.now()}`,
+        source: edgeData.source_id || edgeData.source,
+        target: edgeData.target_id || edgeData.target,
+        label: edgeData.label,
+        type: 'smoothstep',
       };
 
-      setEdges((prev) => [...prev, newEdge]);
+      setEdges((prev) => {
+        // Avoid duplicates (edge may already exist from onConnect)
+        if (prev.some((e) => e.source === newEdge.source && e.target === newEdge.target)) {
+          return prev;
+        }
+        return [...prev, newEdge];
+      });
+    });
+
+    // Handle node_deleted events
+    const unsubNodeDeleted = api.on('node_deleted', (data: any) => {
+      const { id } = data.data || data;
+      if (!id) return;
+      setNodes((prev) => prev.filter((n) => n.id !== id));
+      // Also remove edges connected to this node
+      setEdges((prev) => prev.filter((e) => e.source !== id && e.target !== id));
+    });
+
+    // Handle edge_deleted events
+    const unsubEdgeDeleted = api.on('edge_deleted', (data: any) => {
+      const { id } = data.data || data;
+      if (!id) return;
+      setEdges((prev) => prev.filter((e) => e.id !== id));
     });
 
     // Handle success with initial_state
@@ -112,21 +237,13 @@ function AppContent() {
         console.log('[App] initial_state:', response.data);
 
         if (response.data.nodes && Array.isArray(response.data.nodes)) {
-          // Convert database nodes to React Flow format
-          const flowNodes = response.data.nodes.map((dbNode: any) => {
-            const content = JSON.parse(dbNode.content);
-            return {
-              id: dbNode.id,
-              type: dbNode.type === 'conversation' ? 'agentNode' :
-                    dbNode.type === 'richtext' ? 'richTextNode' :
-                    dbNode.type === 'diagram' ? 'diagramNode' : 'terminalNode',
-              position: content.position || { x: Math.random() * 400, y: Math.random() * 300 },
-              data: content,
-            };
-          });
+          const allDbNodes = response.data.nodes;
+          const flowNodes = allDbNodes.map((dbNode: any) =>
+            dbNodeToFlowNode(dbNode, allDbNodes)
+          );
 
           // Keep demo nodes if backend returns empty state
-          setNodes(flowNodes.length > 0 ? flowNodes : demoNodes);
+          setNodes(flowNodes.length > 0 ? sortNodesParentFirst(flowNodes) : demoNodes);
         }
         if (response.data.edges && Array.isArray(response.data.edges)) {
           // Convert database edges to React Flow format
@@ -135,7 +252,7 @@ function AppContent() {
             source: dbEdge.source_id,
             target: dbEdge.target_id,
             label: dbEdge.label,
-            animated: true,
+            type: 'smoothstep',
           }));
           setEdges(flowEdges);
         }
@@ -162,6 +279,7 @@ function AppContent() {
       }
 
       if (node) {
+        const respAgentName = response.data?.agentName || response.agentName;
         const newNode: Node = {
           id: node.id,
           type: 'agentNode',
@@ -169,6 +287,7 @@ function AppContent() {
           data: {
             question: JSON.parse(node.content).question,
             response: JSON.parse(node.content).response,
+            agentName: respAgentName,
           },
         };
 
@@ -179,71 +298,106 @@ function AppContent() {
       }
     });
 
+    // Handle settings updates
+    const unsubSettings = api.on('settings', (response: any) => {
+      const settings = response.data || response;
+      if (settings.agent_name) {
+        setAgentName(settings.agent_name);
+      }
+      if (settings.anthropic_api_key) {
+        setMaskedApiKey(settings.anthropic_api_key);
+      }
+    });
+
     // Cleanup on unmount
     return () => {
       unsubNodeCreated();
       unsubNodeUpdated();
+      unsubNodeDeleted();
       unsubEdgeCreated();
+      unsubEdgeDeleted();
       unsubSuccess();
       unsubClaudeResponse();
+      unsubSettings();
       api.disconnect();
     };
   }, []);
 
-  const onNodesChange = useCallback((changes: any) => {
-    setNodes((nds) => {
-      // Apply changes locally
-      const newNodes = [...nds];
+  // Keep ref in sync
+  useEffect(() => {
+    agentNameRef.current = agentName;
+  }, [agentName]);
 
-      changes.forEach((change: any) => {
-        if (change.type === 'position' && change.position) {
-          const node = newNodes.find(n => n.id === change.id);
-          if (node) {
-            node.position = change.position;
-            // Sync to backend
+  // Propagate agentName to all relevant nodes when it changes
+  useEffect(() => {
+    setNodes((prev) =>
+      prev.map((node) => {
+        if (node.type === 'agentNode' || node.type === 'richTextNode') {
+          return { ...node, data: { ...node.data, agentName } };
+        }
+        return node;
+      })
+    );
+  }, [agentName]);
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    // Collect additional remove changes for container children
+    const extraRemoves: NodeChange[] = [];
+
+    changes.forEach((change) => {
+      if (change.type === 'position' && change.dragging === false && change.position) {
+        apiRef.current.updateNode({
+          id: change.id,
+          position: change.position,
+        });
+      } else if (change.type === 'remove') {
+        apiRef.current.deleteNode(change.id);
+        // Cascade delete: if removing a container, also remove its children
+        setNodes((nds) => {
+          const children = nds.filter((n) => n.parentId === change.id);
+          children.forEach((child) => {
+            apiRef.current.deleteNode(child.id);
+            extraRemoves.push({ type: 'remove', id: child.id });
+          });
+          return nds;
+        });
+      } else if (change.type === 'dimensions' && change.dimensions) {
+        // Persist container resize to backend
+        setNodes((nds) => {
+          const node = nds.find((n) => n.id === change.id);
+          if (node && node.type === 'containerNode') {
             apiRef.current.updateNode({
               id: change.id,
-              position: change.position,
+              data: {
+                width: change.dimensions!.width,
+                height: change.dimensions!.height,
+              },
             });
           }
-        } else if (change.type === 'remove') {
-          apiRef.current.deleteNode(change.id);
-        }
-      });
-
-      return newNodes;
+          return nds;
+        });
+      }
     });
+
+    setNodes((nds) => applyNodeChanges([...changes, ...extraRemoves], nds));
   }, []);
 
-  const onEdgesChange = useCallback((changes: any) => {
-    setEdges((eds) => {
-      const newEdges = [...eds];
-
-      changes.forEach((change: any) => {
-        if (change.type === 'remove') {
-          apiRef.current.deleteEdge(change.id);
-        }
-      });
-
-      return newEdges;
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    changes.forEach((change) => {
+      if (change.type === 'remove') {
+        apiRef.current.deleteEdge(change.id);
+      }
     });
+
+    setEdges((eds) => applyEdgeChanges(changes, eds));
   }, []);
 
   const onConnect = useCallback((connection: Connection) => {
-    const edge: Edge = {
-      id: `edge-${Date.now()}`,
-      source: connection.source!,
-      target: connection.target!,
-      animated: true,
-    };
-
-    setEdges((eds) => [...eds, edge]);
-
-    // Sync to backend
+    // Send to backend — the edge_created broadcast will add it to state
+    // with the server-generated UUID, keeping IDs in sync.
     apiRef.current.createEdge({
       source: connection.source!,
       target: connection.target!,
-      animated: true,
     });
   }, []);
 
@@ -274,10 +428,26 @@ function AppContent() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        minZoom={0.1}
+        maxZoom={4}
         fitView
+        fitViewOptions={{ padding: 0.2 }}
+        defaultEdgeOptions={{
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#475569', strokeWidth: 1.5 },
+        }}
       >
         <Background />
         <Controls />
+        <CanvasToolbar
+          agentName={agentName}
+          maskedApiKey={maskedApiKey}
+          onSaveSettings={(settings) => {
+            apiRef.current.updateSettings(settings);
+            if (settings.agentName) setAgentName(settings.agentName);
+          }}
+        />
         <MiniMap
           nodeColor={(node) => {
             switch (node.type) {
@@ -287,6 +457,10 @@ function AppContent() {
                 return '#8b5cf6';
               case 'diagramNode':
                 return '#22d3ee';
+              case 'diagramBox':
+                return '#22d3ee';
+              case 'containerNode':
+                return 'rgba(71, 85, 105, 0.3)';
               case 'terminalNode':
                 return '#10b981';
               default:

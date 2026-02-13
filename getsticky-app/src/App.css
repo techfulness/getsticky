@@ -11,3 +11,131 @@ body, html, #root {
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
 }
+
+/* NodeResizer dark theme */
+.react-flow__resize-control.line {
+  border-color: #475569 !important;
+}
+
+.react-flow__resize-control.handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 2px !important;
+  background: #475569 !important;
+  border: 1px solid #64748b !important;
+}
+
+.react-flow__resize-control.handle:hover {
+  background: #64748b !important;
+}
+
+/* TipTap editor styles */
+.tiptap {
+  outline: none;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  color: #64748b;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.tiptap p {
+  margin: 0 0 12px 0;
+}
+
+.tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap code {
+  background-color: #2d3748;
+  color: #f7fafc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.tiptap pre {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-family: 'Monaco', 'Courier New', monospace;
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+}
+
+.tiptap pre code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: inherit;
+}
+
+.tiptap strong {
+  font-weight: 600;
+  color: #f7fafc;
+}
+
+.tiptap em {
+  font-style: italic;
+  color: #cbd5e0;
+}
+
+.tiptap ul,
+.tiptap ol {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.tiptap li {
+  margin-bottom: 4px;
+}
+
+.tiptap span[data-comment-id] {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.tiptap span[data-comment-id]:hover {
+  background-color: rgba(250, 204, 21, 0.4) !important;
+}
+
+/* Comment sidebar loading animation */
+.comment-loading-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.comment-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #818cf8;
+  animation: commentBounce 1.2s infinite;
+}
+
+.comment-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.comment-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes commentBounce {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}

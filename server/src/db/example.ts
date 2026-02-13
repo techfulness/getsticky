@@ -35,17 +35,13 @@ async function example() {
   });
   console.log('Created branch node:', branchNode?.id);
 
-  // Create a diagram node
+  // Create a diagram node (diagrams are native React Flow nodes + edges on the canvas)
   const diagramNode = await db.createNode({
     id: uuidv4(),
     type: 'diagram',
     content: JSON.stringify({
-      mermaidSyntax: `
-        graph TD
-          A[Client] --> B[Auth Service]
-          B --> C[JWT Token]
-          B --> D[User Database]
-      `,
+      title: 'Auth Flow',
+      description: 'Client → Auth Service → JWT Token + User Database',
     }),
     context: 'Architecture diagram showing authentication flow with JWT tokens and user database.',
   });
@@ -83,7 +79,7 @@ async function example() {
     console.log('Conversation path:');
     path.forEach((node, i) => {
       const content = JSON.parse(node.content);
-      console.log(`${i + 1}. ${node.type}: ${content.question || content.mermaidSyntax?.substring(0, 50)}`);
+      console.log(`${i + 1}. ${node.type}: ${content.question || content.title || 'N/A'}`);
     });
   }
 
