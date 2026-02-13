@@ -104,7 +104,7 @@ function StickyNoteNode({ id, data, selected }: NodeProps) {
       {/* nodrag/nowheel/nopan classes prevent React Flow from intercepting events */}
       <div
         ref={textRef}
-        className="nodrag nowheel nopan"
+        className={`nodrag${isEditing || selected ? ' nowheel nopan' : ''}`}
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}

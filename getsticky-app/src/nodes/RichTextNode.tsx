@@ -38,7 +38,7 @@ export type RichTextNodeData = {
 
 export type RichTextNode = Node<RichTextNodeData>;
 
-function RichTextNodeComponent({ data, id }: { data: RichTextNodeData; id: string }) {
+function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData; id: string; selected?: boolean }) {
   const [isFocused, setIsFocused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const api = useAPI();
@@ -562,7 +562,7 @@ function RichTextNodeComponent({ data, id }: { data: RichTextNodeData; id: strin
       {/* Editor */}
       <div
         ref={editorWrapperRef}
-        className="nodrag nowheel"
+        className={`nodrag${isFocused || selected ? ' nowheel' : ''}`}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         style={{

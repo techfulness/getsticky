@@ -12,7 +12,7 @@ export type AgentNodeData = {
 
 export type AgentNode = Node<AgentNodeData>;
 
-function AgentNodeComponent({ data }: { data: AgentNodeData }) {
+function AgentNodeComponent({ data, selected }: { data: AgentNodeData; selected?: boolean }) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -90,6 +90,7 @@ function AgentNodeComponent({ data }: { data: AgentNodeData }) {
 
       {/* Response Body */}
       <div
+        className={selected ? 'nowheel' : ''}
         style={{
           padding: '20px',
           fontSize: '14px',

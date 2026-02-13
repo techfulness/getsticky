@@ -5,6 +5,7 @@ import {
   Controls,
   MiniMap,
   SelectionMode,
+  PanOnScrollMode,
   applyNodeChanges,
   applyEdgeChanges,
   useReactFlow,
@@ -530,6 +531,11 @@ function AppContent() {
         maxZoom={4}
         fitView
         fitViewOptions={{ padding: 0.2 }}
+        zoomOnScroll={false}
+        zoomOnPinch={true}
+        zoomOnDoubleClick={false}
+        panOnScroll={true}
+        panOnScrollMode={PanOnScrollMode.Free}
         defaultEdgeOptions={{
           type: 'smoothstep',
           animated: false,
