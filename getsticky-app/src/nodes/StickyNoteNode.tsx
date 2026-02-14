@@ -1,7 +1,7 @@
-import { memo, useCallback, useRef, useEffect, useState } from 'react';
+import { memo, useCallback, useRef, useEffect } from 'react';
 import { type NodeProps } from '@xyflow/react';
 import { useAPI } from '../contexts/APIContext';
-import { useWheelPassthroughPinch } from '../lib/gestures';
+import { useGrabToDrag, useWheelPassthroughPinch } from '../lib/gestures';
 
 const STICKY_COLORS: Record<string, { bg: string; text: string }> = {
   yellow:   { bg: '#fef08a', text: '#713f12' },
@@ -23,9 +23,22 @@ function StickyNoteNode({ id, data, selected }: NodeProps) {
   const api = useAPI();
   const textRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  const [isEditing, setIsEditing] = useState(false);
-  useWheelPassthroughPinch(textRef, isEditing || !!selected);
   const initializedRef = useRef(false);
+
+  const handleSelectFocus = useCallback((x: number, y: number) => {
+    const el = textRef.current;
+    if (!el) return;
+    el.focus();
+    const range = document.caretRangeFromPoint(x, y);
+    if (range) {
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+  }, []);
+
+  const { containerOnMouseDown, editableClassName } = useGrabToDrag(selected, handleSelectFocus);
+  useWheelPassthroughPinch(textRef, !!selected);
 
   const color = (data.color as string) || 'yellow';
   const palette = STICKY_COLORS[color] || STICKY_COLORS.yellow;
@@ -71,6 +84,7 @@ function StickyNoteNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
+      onMouseDown={containerOnMouseDown}
       style={{
         width: 200,
         minHeight: 200,
@@ -84,7 +98,7 @@ function StickyNoteNode({ id, data, selected }: NodeProps) {
         fontFamily: "'Inter', -apple-system, sans-serif",
         display: 'flex',
         flexDirection: 'column',
-        cursor: isEditing ? 'text' : 'grab',
+        cursor: selected ? 'text' : 'grab',
         transition: 'box-shadow 0.2s',
       }}
     >
@@ -106,14 +120,10 @@ function StickyNoteNode({ id, data, selected }: NodeProps) {
       {/* nodrag/nopan classes + onWheel handler prevent React Flow from intercepting events while allowing pinch-to-zoom */}
       <div
         ref={textRef}
-        className={`nodrag${isEditing || selected ? ' nopan' : ''}`}
+        className={editableClassName}
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
-        onFocus={() => setIsEditing(true)}
-        onBlur={() => setIsEditing(false)}
-        onMouseDown={(e) => e.stopPropagation()}
-        onDoubleClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
         data-placeholder="Type here..."
         style={{

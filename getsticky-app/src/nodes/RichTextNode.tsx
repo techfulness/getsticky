@@ -11,7 +11,7 @@ import { useAPI } from '../contexts/APIContext';
 import CommentMark from '../extensions/CommentMark';
 import CommentSidebar from '../components/CommentSidebar';
 import type { CommentThread, CommentMessage } from '../types/comments';
-import { useWheelPassthroughPinch } from '../lib/gestures';
+import { useGrabToDrag, useWheelPassthroughPinch } from '../lib/gestures';
 
 const lowlight = createLowlight(common);
 
@@ -59,8 +59,8 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
   const commentInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const pendingClickRef = useRef<{ x: number; y: number } | null>(null);
-  const wasSelectedRef = useRef(selected);
+  const handleSelectFocusRef = useRef<(x: number, y: number) => void>(() => {});
+  const { containerOnMouseDown, editableClassName } = useGrabToDrag(selected, (...args) => handleSelectFocusRef.current(...args));
 
   // Persist threads to backend whenever they change
   const persistThreads = useCallback(
@@ -182,34 +182,25 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
     }
   }, [showCommentInput]);
 
-  // On selection transition, focus editor/title at the stored click position
-  useEffect(() => {
-    if (selected && !wasSelectedRef.current) {
-      requestAnimationFrame(() => {
-        if (!pendingClickRef.current) return;
-        const { x, y } = pendingClickRef.current;
-        pendingClickRef.current = null;
-
-        // Check if click was in the header area → focus title
-        const headerRect = headerRef.current?.getBoundingClientRect();
-        if (headerRect && y >= headerRect.top && y <= headerRect.bottom && titleRef.current) {
-          titleRef.current.focus();
-          return;
-        }
-
-        // Otherwise focus editor at click position
-        if (editor) {
-          const pos = editor.view.posAtCoords({ left: x, top: y });
-          if (pos) {
-            editor.chain().focus().setTextSelection(pos.pos).run();
-          } else {
-            editor.commands.focus('end');
-          }
-        }
-      });
+  // Keep the selectFocus callback up-to-date with current editor/refs
+  handleSelectFocusRef.current = (x: number, y: number) => {
+    // Check if click was in the header area → focus title
+    const headerRect = headerRef.current?.getBoundingClientRect();
+    if (headerRect && y >= headerRect.top && y <= headerRect.bottom && titleRef.current) {
+      titleRef.current.focus();
+      return;
     }
-    wasSelectedRef.current = selected;
-  }, [selected, editor]);
+
+    // Otherwise focus editor at click position
+    if (editor) {
+      const pos = editor.view.posAtCoords({ left: x, top: y });
+      if (pos) {
+        editor.chain().focus().setTextSelection(pos.pos).run();
+      } else {
+        editor.commands.focus('end');
+      }
+    }
+  };
 
   // Auto-resize title textarea
   useEffect(() => {
@@ -331,11 +322,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onMouseDown={(e) => {
-        if (!selected) {
-          pendingClickRef.current = { x: e.clientX, y: e.clientY };
-        }
-      }}
+      onMouseDown={containerOnMouseDown}
       style={{
         background: 'linear-gradient(135deg, #1e1b2e 0%, #0f0e1a 100%)',
         border: selected
@@ -387,7 +374,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
       >
         <textarea
           ref={titleRef}
-          className={selected ? 'nodrag' : ''}
+          className={editableClassName}
           value={data.title || ''}
           placeholder="Untitled"
           rows={1}
@@ -511,7 +498,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
       {/* Editor */}
       <div
         ref={editorWrapperRef}
-        className={selected ? 'nodrag' : ''}
+        className={editableClassName}
         style={{
           padding: '20px',
           fontSize: '14px',
