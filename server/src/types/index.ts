@@ -7,6 +7,9 @@ export type NodeType = 'conversation' | 'diagram' | 'diagramBox' | 'container' |
 export interface Board {
   id: string;
   name: string;
+  viewport_x?: number | null;
+  viewport_y?: number | null;
+  viewport_zoom?: number | null;
   created_at: string;
   updated_at: string;
 }

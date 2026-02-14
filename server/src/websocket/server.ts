@@ -17,10 +17,11 @@ const VALID_WS_TYPES = new Set([
   'ask_claude', 'comment_ask_claude',
   'get_settings', 'update_settings',
   'create_board', 'delete_board', 'list_boards',
+  'update_viewport',
 ]);
 
 export interface WSMessage {
-  type: 'create_node' | 'update_node' | 'delete_node' | 'create_edge' | 'delete_edge' | 'add_context' | 'search_context' | 'ask_claude' | 'comment_ask_claude' | 'get_settings' | 'update_settings' | 'create_board' | 'delete_board' | 'list_boards';
+  type: 'create_node' | 'update_node' | 'delete_node' | 'create_edge' | 'delete_edge' | 'add_context' | 'search_context' | 'ask_claude' | 'comment_ask_claude' | 'get_settings' | 'update_settings' | 'create_board' | 'delete_board' | 'list_boards' | 'update_viewport';
   data: any;
   id?: string;
 }
@@ -146,12 +147,14 @@ export class GetStickyWSServer {
   private async sendInitialState(ws: WebSocket): Promise<void> {
     const boardId = this.getBoardId(ws);
     const graph = this.db.exportGraph(boardId);
+    const viewport = this.db.getBoardViewport(boardId);
     this.send(ws, {
       type: 'success',
       data: {
         type: 'initial_state',
         nodes: graph.nodes,
         edges: graph.edges,
+        viewport,
       },
     });
   }
@@ -348,6 +351,17 @@ export class GetStickyWSServer {
 
         case 'comment_ask_claude': {
           await this.handleCommentClaudeQuery(ws, message.data, requestId);
+          break;
+        }
+
+        case 'update_viewport': {
+          const { x, y, zoom } = message.data;
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(zoom)) {
+            this.sendError(ws, 'Viewport requires numeric x, y, and zoom values', requestId);
+            return;
+          }
+          this.db.updateBoardViewport(boardId, x, y, zoom);
+          this.send(ws, { type: 'success', requestId });
           break;
         }
 

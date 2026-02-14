@@ -257,6 +257,14 @@ export class DatabaseManager {
     return this.sqlite.getAllBoards();
   }
 
+  updateBoardViewport(boardId: string, x: number, y: number, zoom: number): void {
+    this.sqlite.updateBoardViewport(boardId, x, y, zoom);
+  }
+
+  getBoardViewport(boardId: string): { x: number; y: number; zoom: number } | null {
+    return this.sqlite.getBoardViewport(boardId);
+  }
+
   async deleteBoard(id: string): Promise<boolean> {
     // Clean up LanceDB contexts for this board
     await this.lancedb.deleteBoardContexts(id);

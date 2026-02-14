@@ -62,6 +62,16 @@ export class SQLiteDB {
       this.db.exec(`ALTER TABLE nodes ADD COLUMN board_id TEXT NOT NULL DEFAULT 'default'`);
     }
 
+    // Migrate: add viewport columns to boards table
+    const boardColumns = this.db.pragma('table_info(boards)') as { name: string }[];
+    if (!boardColumns.some((col) => col.name === 'viewport_x')) {
+      this.db.exec(`BEGIN`);
+      this.db.exec(`ALTER TABLE boards ADD COLUMN viewport_x REAL`);
+      this.db.exec(`ALTER TABLE boards ADD COLUMN viewport_y REAL`);
+      this.db.exec(`ALTER TABLE boards ADD COLUMN viewport_zoom REAL`);
+      this.db.exec(`COMMIT`);
+    }
+
     // Create edges table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS edges (
@@ -328,6 +338,23 @@ export class SQLiteDB {
   getAllBoards(): Board[] {
     const stmt = this.db.prepare('SELECT * FROM boards ORDER BY created_at DESC');
     return stmt.all() as Board[];
+  }
+
+  updateBoardViewport(boardId: string, x: number, y: number, zoom: number): void {
+    const stmt = this.db.prepare(`
+      UPDATE boards SET viewport_x = ?, viewport_y = ?, viewport_zoom = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(x, y, zoom, boardId);
+  }
+
+  getBoardViewport(boardId: string): { x: number; y: number; zoom: number } | null {
+    const stmt = this.db.prepare('SELECT viewport_x, viewport_y, viewport_zoom FROM boards WHERE id = ?');
+    const row = stmt.get(boardId) as { viewport_x: number | null; viewport_y: number | null; viewport_zoom: number | null } | undefined;
+    if (!row || row.viewport_x == null || row.viewport_y == null || row.viewport_zoom == null) {
+      return null;
+    }
+    return { x: row.viewport_x, y: row.viewport_y, zoom: row.viewport_zoom };
   }
 
   deleteBoard(id: string): boolean {

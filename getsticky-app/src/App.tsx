@@ -155,7 +155,17 @@ function AppContent() {
 
   // Feature 3: Click-to-place
   const [activeTool, setActiveTool] = useState<ToolItem | null>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, setViewport, fitView } = useReactFlow();
+
+  // Viewport persistence: debounced save
+  const viewportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipViewportSaveRef = useRef(false);
+
+  // Stable refs for useReactFlow functions used inside mount effect
+  const setViewportRef = useRef(setViewport);
+  const fitViewRef = useRef(fitView);
+  setViewportRef.current = setViewport;
+  fitViewRef.current = fitView;
 
   // Feature 5: Selection tracking for contextual menu
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
@@ -283,6 +293,17 @@ function AppContent() {
           }));
           setEdges(flowEdges);
         }
+
+        // Restore saved viewport or fitView for new boards
+        const savedViewport = response.data.viewport;
+        requestAnimationFrame(() => {
+          if (savedViewport) {
+            skipViewportSaveRef.current = true;
+            setViewportRef.current({ x: savedViewport.x, y: savedViewport.y, zoom: savedViewport.zoom });
+          } else {
+            fitViewRef.current({ padding: 0.2 });
+          }
+        });
       }
     });
 
@@ -346,6 +367,7 @@ function AppContent() {
       unsubSuccess();
       unsubClaudeResponse();
       unsubSettings();
+      if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
       api.disconnect();
     };
   }, []);
@@ -445,6 +467,18 @@ function AppContent() {
     setSelectedNodes(selected);
   }, []);
 
+  // Debounced viewport persistence
+  const onViewportChange = useCallback((viewport: { x: number; y: number; zoom: number }) => {
+    if (skipViewportSaveRef.current) {
+      skipViewportSaveRef.current = false;
+      return;
+    }
+    if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
+    viewportTimerRef.current = setTimeout(() => {
+      apiRef.current.updateViewport(viewport.x, viewport.y, viewport.zoom);
+    }, 5000);
+  }, []);
+
   // Feature 4: Copy/paste keyboard handler + Escape to clear tool
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -532,6 +566,7 @@ function AppContent() {
         onConnect={onConnect}
         onPaneClick={onPaneClick}
         onSelectionChange={onSelectionChange}
+        onViewportChange={onViewportChange}
         nodeTypes={nodeTypes}
         selectNodesOnDrag={false}
         selectionOnDrag={true}
@@ -539,8 +574,6 @@ function AppContent() {
         selectionMode={SelectionMode.Partial}
         minZoom={0.1}
         maxZoom={4}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
         zoomOnScroll={false}
         zoomOnPinch={true}
         zoomOnDoubleClick={false}

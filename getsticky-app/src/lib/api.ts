@@ -158,6 +158,17 @@ export class GetStickyAPI {
   }
 
   // ==========================================================================
+  // Viewport Operations
+  // ==========================================================================
+
+  /**
+   * Save viewport position and zoom for the current board
+   */
+  updateViewport(x: number, y: number, zoom: number): void {
+    this.ws.send('update_viewport', { x, y, zoom });
+  }
+
+  // ==========================================================================
   // Settings Operations
   // ==========================================================================
 
