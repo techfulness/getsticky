@@ -11,7 +11,7 @@ import { useAPI } from '../contexts/APIContext';
 import CommentMark from '../extensions/CommentMark';
 import CommentSidebar from '../components/CommentSidebar';
 import type { CommentThread, CommentMessage } from '../types/comments';
-import { handleWheelPassthroughPinch } from '../lib/gestures';
+import { useWheelPassthroughPinch } from '../lib/gestures';
 
 const lowlight = createLowlight(common);
 
@@ -55,6 +55,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
   const [loadingThreadIds, setLoadingThreadIds] = useState<Set<string>>(new Set());
   const [threadPositions, setThreadPositions] = useState<Map<string, number>>(new Map());
   const editorWrapperRef = useRef<HTMLDivElement>(null);
+  useWheelPassthroughPinch(editorWrapperRef, !!selected);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -511,7 +512,6 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
       <div
         ref={editorWrapperRef}
         className={selected ? 'nodrag' : ''}
-        onWheel={selected ? handleWheelPassthroughPinch : undefined}
         style={{
           padding: '20px',
           fontSize: '14px',

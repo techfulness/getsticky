@@ -1,7 +1,7 @@
 import { memo, useCallback, useRef, useEffect, useState } from 'react';
 import { type NodeProps } from '@xyflow/react';
 import { useAPI } from '../contexts/APIContext';
-import { handleWheelPassthroughPinch } from '../lib/gestures';
+import { useWheelPassthroughPinch } from '../lib/gestures';
 
 const STICKY_COLORS: Record<string, { bg: string; text: string }> = {
   yellow:   { bg: '#fef08a', text: '#713f12' },
@@ -24,6 +24,7 @@ function StickyNoteNode({ id, data, selected }: NodeProps) {
   const textRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [isEditing, setIsEditing] = useState(false);
+  useWheelPassthroughPinch(textRef, isEditing || !!selected);
   const initializedRef = useRef(false);
 
   const color = (data.color as string) || 'yellow';
@@ -106,7 +107,6 @@ function StickyNoteNode({ id, data, selected }: NodeProps) {
       <div
         ref={textRef}
         className={`nodrag${isEditing || selected ? ' nopan' : ''}`}
-        onWheel={isEditing || selected ? handleWheelPassthroughPinch : undefined}
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}

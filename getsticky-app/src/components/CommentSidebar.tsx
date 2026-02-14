@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { CommentMessage, CommentThread } from '../types/comments';
-import { handleWheelPassthroughPinch } from '../lib/gestures';
+import { useWheelPassthroughPinch } from '../lib/gestures';
 
 export type { CommentMessage, CommentThread };
 
@@ -42,7 +42,6 @@ function CommentCard({
   return (
     <div
       className="nodrag"
-      onWheel={handleWheelPassthroughPinch}
       onClick={() => onThreadClick(thread.id)}
       style={{
         width: '280px',
@@ -140,7 +139,6 @@ function CommentCard({
       {/* Expanded body */}
       {expanded && (
         <div
-          onWheel={handleWheelPassthroughPinch}
           style={{
             padding: '8px 10px 10px',
             maxHeight: '300px',
@@ -321,6 +319,9 @@ export default function CommentSidebar({
   onResolve,
   onAddMessage,
 }: CommentSidebarProps) {
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  useWheelPassthroughPinch(sidebarRef);
+
   // Sort threads by their text position in the document
   const sortedThreads = [...threads].sort((a, b) => {
     const aY = threadPositions.get(a.id) ?? a.from;
@@ -330,7 +331,7 @@ export default function CommentSidebar({
 
   return (
     <div
-      onWheel={handleWheelPassthroughPinch}
+      ref={sidebarRef}
       style={{
         position: 'absolute',
         right: '-300px',

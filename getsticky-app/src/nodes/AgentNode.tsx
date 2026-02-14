@@ -1,9 +1,9 @@
 import { Handle, Position, type Node } from '@xyflow/react';
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { handleWheelPassthroughPinch } from '../lib/gestures';
+import { useWheelPassthroughPinch } from '../lib/gestures';
 
 export type AgentNodeData = {
   question: string;
@@ -15,6 +15,8 @@ export type AgentNode = Node<AgentNodeData>;
 
 function AgentNodeComponent({ data, selected }: { data: AgentNodeData; selected?: boolean }) {
   const [isHovered, setIsHovered] = useState(false);
+  const responseRef = useRef<HTMLDivElement>(null);
+  useWheelPassthroughPinch(responseRef, !!selected);
 
   return (
     <div
@@ -91,7 +93,7 @@ function AgentNodeComponent({ data, selected }: { data: AgentNodeData; selected?
 
       {/* Response Body */}
       <div
-        onWheel={selected ? handleWheelPassthroughPinch : undefined}
+        ref={responseRef}
         style={{
           padding: '20px',
           fontSize: '14px',
