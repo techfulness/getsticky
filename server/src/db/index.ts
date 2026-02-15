@@ -1,20 +1,31 @@
 /**
  * Unified database manager for GetSticky
  * Combines SQLite (structured data) and LanceDB (vector search)
+ *
+ * Extends EventEmitter to emit 'mutation' events on every write,
+ * enabling cross-process real-time notifications (MCP → WS → frontend).
  */
 
+import { EventEmitter } from 'events';
 import { SQLiteDB } from './sqlite';
 import { LanceDBManager } from './lancedb';
 import { Node, Edge, NodeType, ContextSource, Board } from '../types';
+import type { NotificationPayload } from '../notifications/types';
 
-export class DatabaseManager {
+export class DatabaseManager extends EventEmitter {
   private sqlite: SQLiteDB;
   private lancedb: LanceDBManager;
   private initialized: boolean = false;
 
   constructor(dbPath: string = './getsticky-data') {
+    super();
     this.sqlite = new SQLiteDB(`${dbPath}/getsticky.db`);
     this.lancedb = new LanceDBManager(`${dbPath}/lancedb`);
+  }
+
+  /** Emit a typed mutation event for notification subscribers. */
+  private emitMutation(event: string, data: any, boardId: string): void {
+    this.emit('mutation', { event, data, boardId } satisfies NotificationPayload);
   }
 
   /**
@@ -58,6 +69,7 @@ export class DatabaseManager {
       });
     }
 
+    this.emitMutation('node_created', createdNode, boardId);
     return createdNode;
   }
 
@@ -90,15 +102,27 @@ export class DatabaseManager {
       });
     }
 
+    if (node) {
+      this.emitMutation('node_updated', node, node.board_id);
+    }
     return node;
   }
 
   async deleteNode(id: string): Promise<boolean> {
+    // Look up board_id BEFORE deleting the row
+    const node = this.sqlite.getNode(id);
+    const boardId = node?.board_id || 'default';
+
     // Delete from vector DB first
     await this.lancedb.deleteNodeContexts(id);
 
     // Then delete from SQLite (cascades to edges)
-    return this.sqlite.deleteNode(id);
+    const success = this.sqlite.deleteNode(id);
+
+    if (success) {
+      this.emitMutation('node_deleted', { id }, boardId);
+    }
+    return success;
   }
 
   /**
@@ -106,7 +130,14 @@ export class DatabaseManager {
    */
 
   createEdge(edge: Edge): Edge {
-    return this.sqlite.createEdge(edge);
+    const created = this.sqlite.createEdge(edge);
+
+    // Determine boardId from the source node
+    const sourceNode = this.sqlite.getNode(edge.source_id);
+    const boardId = sourceNode?.board_id || 'default';
+    this.emitMutation('edge_created', created, boardId);
+
+    return created;
   }
 
   getEdge(id: string): Edge | null {
@@ -122,7 +153,20 @@ export class DatabaseManager {
   }
 
   deleteEdge(id: string): boolean {
-    return this.sqlite.deleteEdge(id);
+    // Look up edge and source node BEFORE deleting
+    const edge = this.sqlite.getEdge(id);
+    let boardId = 'default';
+    if (edge) {
+      const sourceNode = this.sqlite.getNode(edge.source_id);
+      boardId = sourceNode?.board_id || 'default';
+    }
+
+    const success = this.sqlite.deleteEdge(id);
+
+    if (success) {
+      this.emitMutation('edge_deleted', { id }, boardId);
+    }
+    return success;
   }
 
   /**
@@ -150,6 +194,7 @@ export class DatabaseManager {
     if (node) {
       const newContext = node.context ? `${node.context}\n\n${text}` : text;
       this.sqlite.updateNode(nodeId, { context: newContext });
+      this.emitMutation('context_added', { node_id: nodeId, text, source }, node.board_id);
     }
   }
 
@@ -193,6 +238,10 @@ export class DatabaseManager {
         text: childNode.context,
         source: 'agent',
       });
+    }
+
+    if (childNode) {
+      this.emitMutation('node_created', childNode, childNode.board_id);
     }
 
     return childNode;
@@ -246,7 +295,9 @@ export class DatabaseManager {
    */
 
   createBoard(id: string, name: string): Board {
-    return this.sqlite.createBoard(id, name);
+    const board = this.sqlite.createBoard(id, name);
+    this.emitMutation('board_created', board, id);
+    return board;
   }
 
   getBoard(id: string): Board | null {
@@ -269,7 +320,12 @@ export class DatabaseManager {
     // Clean up LanceDB contexts for this board
     await this.lancedb.deleteBoardContexts(id);
     // Clean up SQLite (nodes, edges, context_chain, board row)
-    return this.sqlite.deleteBoard(id);
+    const success = this.sqlite.deleteBoard(id);
+
+    if (success) {
+      this.emitMutation('board_deleted', { id }, id);
+    }
+    return success;
   }
 
   /**

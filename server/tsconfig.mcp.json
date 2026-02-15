@@ -5,5 +5,5 @@
     "moduleResolution": "bundler",
     "outDir": "./dist-mcp"
   },
-  "include": ["src/mcp/**/*", "src/db/**/*", "src/types/**/*"]
+  "include": ["src/mcp/**/*", "src/db/**/*", "src/types/**/*", "src/notifications/**/*"]
 }

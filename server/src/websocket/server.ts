@@ -1,14 +1,20 @@
 /**
  * WebSocket server for real-time communication with the frontend
  * Allows the React Flow canvas to sync with the database in real-time
+ *
+ * Also exposes an HTTP endpoint (POST /notify) so that external
+ * processes (e.g. the MCP server) can push mutation events that
+ * get broadcast to connected frontends.
  */
 
+import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
 import { DatabaseManager } from '../db/index';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
 import { maskApiKey } from '../utils';
+import type { NotificationPayload } from '../notifications/types';
 
 const VALID_WS_TYPES = new Set([
   'create_node', 'update_node', 'delete_node',
@@ -48,6 +54,7 @@ function getMaskedSettings(db: DatabaseManager): Record<string, string> {
 }
 
 export class GetStickyWSServer {
+  private httpServer: http.Server;
   private wss: WebSocketServer;
   private db: DatabaseManager;
   private boardClients: Map<string, Set<WebSocket>> = new Map();
@@ -56,7 +63,13 @@ export class GetStickyWSServer {
 
   constructor(port: number, db: DatabaseManager, anthropicApiKey?: string) {
     this.db = db;
-    this.wss = new WebSocketServer({ port });
+
+    // Create HTTP server that handles REST endpoints and upgrades to WS
+    this.httpServer = http.createServer((req, res) => {
+      this.handleHttpRequest(req, res);
+    });
+
+    this.wss = new WebSocketServer({ server: this.httpServer });
 
     // Try to load API key: DB first, then env fallback
     const dbApiKey = this.db.getSetting('anthropic_api_key');
@@ -66,6 +79,49 @@ export class GetStickyWSServer {
     }
 
     this.setupServer();
+    this.httpServer.listen(port, () => {
+      console.log(`WebSocket + HTTP server running on port ${port}`);
+    });
+  }
+
+  /**
+   * Handle incoming HTTP requests (POST /notify, GET /health).
+   * Everything else returns 404.
+   */
+  private handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok' }));
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/notify') {
+      let body = '';
+      req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const payload: NotificationPayload = JSON.parse(body);
+          if (!payload.event || !payload.boardId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing event or boardId' }));
+            return;
+          }
+          this.broadcastToBoard(
+            { type: payload.event as WSResponse['type'], data: payload.data },
+            payload.boardId,
+          );
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    res.writeHead(404);
+    res.end();
   }
 
   private getBoardId(ws: WebSocket): string {
@@ -140,8 +196,6 @@ export class GetStickyWSServer {
       // Send initial state for this board
       this.sendInitialState(ws);
     });
-
-    console.log(`WebSocket server running on port ${this.wss.options.port}`);
   }
 
   private async sendInitialState(ws: WebSocket): Promise<void> {
@@ -631,5 +685,6 @@ export class GetStickyWSServer {
     this.boardClients.clear();
     this.clientBoard.clear();
     this.wss.close();
+    this.httpServer.close();
   }
 }

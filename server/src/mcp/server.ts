@@ -14,6 +14,7 @@ import {
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { initDB } from '../db/index.js';
 import type { DatabaseManager } from '../db/index.js';
+import { HttpNotificationClient } from '../notifications/http-client.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as dotenv from 'dotenv';
 import Dagre from '@dagrejs/dagre';
@@ -1082,6 +1083,11 @@ async function main() {
   // Initialize database
   db = await initDB(process.env.DB_PATH);
   console.error('Database initialized');
+
+  // Wire up cross-process notifications: DB mutations → HTTP POST → WS server → frontends
+  const notifier = new HttpNotificationClient(process.env.WS_SERVER_URL);
+  db.on('mutation', (payload) => notifier.publish(payload));
+  console.error(`Notifications targeting ${process.env.WS_SERVER_URL || 'http://localhost:8080'}`);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
