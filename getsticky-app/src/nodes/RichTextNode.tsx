@@ -54,6 +54,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
   } | null>(null);
   const [loadingThreadIds, setLoadingThreadIds] = useState<Set<string>>(new Set());
   const [threadPositions, setThreadPositions] = useState<Map<string, number>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
   const editorWrapperRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -312,6 +313,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
 
   return (
     <div
+      ref={containerRef}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onMouseDown={containerOnMouseDown}
@@ -396,17 +398,21 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
       {editor && (
         <BubbleMenu
           editor={editor}
-          tippyOptions={{ duration: 100, placement: 'top' }}
+          tippyOptions={{
+            duration: 100,
+            placement: 'top',
+            appendTo: () => containerRef.current || document.body,
+          }}
         >
           {showCommentInput ? (
             <div
               style={{
                 display: 'flex',
-                gap: '4px',
+                gap: '0.5cqw',
                 background: '#1e1b2e',
                 border: '1px solid #facc15',
-                borderRadius: '6px',
-                padding: '6px',
+                borderRadius: '0.75cqw',
+                padding: '0.75cqw',
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
               }}
             >
@@ -431,12 +437,12 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
                 style={{
                   background: '#0f0e1a',
                   border: '1px solid #2d3748',
-                  borderRadius: '4px',
-                  padding: '4px 8px',
-                  fontSize: '12px',
+                  borderRadius: '0.5cqw',
+                  padding: '0.5cqw 1cqw',
+                  fontSize: '1.5cqw',
                   color: '#e2e8f0',
                   outline: 'none',
-                  width: '200px',
+                  width: '25cqw',
                 }}
               />
               <button
@@ -444,9 +450,9 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
                 style={{
                   background: '#facc15',
                   border: 'none',
-                  borderRadius: '4px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
+                  borderRadius: '0.5cqw',
+                  padding: '0.5cqw 1.25cqw',
+                  fontSize: '1.375cqw',
                   color: '#0f0e1a',
                   cursor: 'pointer',
                   fontWeight: 700,
@@ -469,9 +475,9 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
               style={{
                 background: 'linear-gradient(135deg, #facc15 0%, #f59e0b 100%)',
                 border: 'none',
-                borderRadius: '6px',
-                padding: '6px 14px',
-                fontSize: '12px',
+                borderRadius: '0.75cqw',
+                padding: '0.75cqw 1.75cqw',
+                fontSize: '1.5cqw',
                 color: '#0f0e1a',
                 cursor: 'pointer',
                 fontWeight: 700,
@@ -489,8 +495,8 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
         ref={editorWrapperRef}
         className={editableClassName}
         style={{
-          padding: '2.5cqw',
-          fontSize: '1cqw',
+          padding: '1.5cqw',
+          fontSize: '1.2cqw',
           color: '#e2e8f0',
           lineHeight: '1.7',
           cursor: selected ? 'text' : 'inherit',

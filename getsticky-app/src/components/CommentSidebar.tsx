@@ -44,14 +44,14 @@ function CommentCard({
       className="nodrag"
       onClick={() => onThreadClick(thread.id)}
       style={{
-        width: '280px',
+        width: '52.5cqw',
         background: isActive
           ? 'rgba(250, 204, 21, 0.08)'
           : 'linear-gradient(135deg, #1e1b2e 0%, #0f0e1a 100%)',
         border: isActive
           ? '1px solid rgba(250, 204, 21, 0.3)'
           : '1px solid #2d3748',
-        borderRadius: '8px',
+        borderRadius: '1cqw',
         boxShadow: isActive
           ? '0 4px 16px rgba(250, 204, 21, 0.1)'
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
@@ -71,8 +71,8 @@ function CommentCard({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '8px 10px',
+          gap: '0.75cqw',
+          padding: '1cqw 1.25cqw',
           cursor: 'pointer',
           borderBottom: expanded ? '1px solid rgba(45, 55, 72, 0.5)' : 'none',
           borderLeft: '3px solid #facc15',
@@ -80,7 +80,7 @@ function CommentCard({
       >
         <span
           style={{
-            fontSize: '9px',
+            fontSize: '1.125cqw',
             color: '#64748b',
             transition: 'transform 0.15s ease',
             transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
@@ -94,7 +94,7 @@ function CommentCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: '11px',
+              fontSize: '1.375cqw',
               color: '#cbd5e0',
               fontStyle: 'italic',
               overflow: 'hidden',
@@ -109,9 +109,9 @@ function CommentCard({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5cqw', flexShrink: 0 }}>
           {isLoading && (
-            <span className="comment-loading-dots" style={{ marginRight: '2px' }}>
+            <span className="comment-loading-dots" style={{ marginRight: '0.25cqw' }}>
               <span className="comment-dot" />
               <span className="comment-dot" />
               <span className="comment-dot" />
@@ -119,17 +119,17 @@ function CommentCard({
           )}
           <span
             style={{
-              fontSize: '9px',
+              fontSize: '1.125cqw',
               color: '#4a5568',
               background: 'rgba(45, 55, 72, 0.5)',
-              borderRadius: '8px',
-              padding: '1px 5px',
+              borderRadius: '1cqw',
+              padding: '0.125cqw 0.625cqw',
             }}
           >
             {thread.messages.length}
           </span>
           {isResolved && (
-            <span style={{ fontSize: '9px', color: '#10b981', fontWeight: 600 }}>
+            <span style={{ fontSize: '1.125cqw', color: '#10b981', fontWeight: 600 }}>
               ✓
             </span>
           )}
@@ -140,13 +140,13 @@ function CommentCard({
       {expanded && (
         <div
           style={{
-            padding: '8px 10px 10px',
-            maxHeight: '300px',
+            padding: '1cqw 1.25cqw 1.25cqw',
+            maxHeight: '37.5cqw',
             overflowY: 'auto',
           }}
         >
           {/* Messages */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625cqw' }}>
             {thread.messages.map((msg) => (
               <div
                 key={msg.id}
@@ -155,20 +155,20 @@ function CommentCard({
                     msg.author === 'claude'
                       ? 'rgba(99, 102, 241, 0.1)'
                       : 'rgba(139, 92, 246, 0.08)',
-                  borderRadius: '6px',
-                  padding: '6px 8px',
-                  fontSize: '11px',
+                  borderRadius: '0.75cqw',
+                  padding: '0.75cqw 1cqw',
+                  fontSize: '1.375cqw',
                   lineHeight: '1.5',
                 }}
               >
                 <div
                   style={{
-                    fontSize: '9px',
+                    fontSize: '1.125cqw',
                     fontWeight: 600,
                     color: msg.author === 'claude' ? '#818cf8' : '#a78bfa',
-                    marginBottom: '2px',
+                    marginBottom: '0.25cqw',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
+                    letterSpacing: '0.0625cqw',
                   }}
                 >
                   {msg.author === 'claude' ? agentName : 'You'}
@@ -182,19 +182,19 @@ function CommentCard({
               <div
                 style={{
                   background: 'rgba(99, 102, 241, 0.1)',
-                  borderRadius: '6px',
-                  padding: '6px 8px',
-                  fontSize: '11px',
+                  borderRadius: '0.75cqw',
+                  padding: '0.75cqw 1cqw',
+                  fontSize: '1.375cqw',
                 }}
               >
                 <div
                   style={{
-                    fontSize: '9px',
+                    fontSize: '1.125cqw',
                     fontWeight: 600,
                     color: '#818cf8',
-                    marginBottom: '2px',
+                    marginBottom: '0.25cqw',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
+                    letterSpacing: '0.0625cqw',
                   }}
                 >
                   {agentName}
@@ -210,8 +210,8 @@ function CommentCard({
 
           {/* Reply input (only for open threads) */}
           {!isResolved && (
-            <div style={{ marginTop: '6px' }}>
-              <div style={{ display: 'flex', gap: '3px' }}>
+            <div style={{ marginTop: '0.75cqw' }}>
+              <div style={{ display: 'flex', gap: '0.375cqw' }}>
                 <input
                   type="text"
                   value={reply}
@@ -230,9 +230,9 @@ function CommentCard({
                     flex: 1,
                     background: '#1a202c',
                     border: '1px solid #2d3748',
-                    borderRadius: '4px',
-                    padding: '5px 7px',
-                    fontSize: '10px',
+                    borderRadius: '0.5cqw',
+                    padding: '0.625cqw 0.875cqw',
+                    fontSize: '1.25cqw',
                     color: '#e2e8f0',
                     outline: 'none',
                     opacity: isLoading ? 0.5 : 1,
@@ -247,9 +247,9 @@ function CommentCard({
                   style={{
                     background: '#6366f1',
                     border: 'none',
-                    borderRadius: '4px',
-                    padding: '5px 7px',
-                    fontSize: '9px',
+                    borderRadius: '0.5cqw',
+                    padding: '0.625cqw 0.875cqw',
+                    fontSize: '1.125cqw',
                     color: '#fff',
                     cursor: isLoading ? 'not-allowed' : 'pointer',
                     fontWeight: 600,
@@ -264,7 +264,7 @@ function CommentCard({
                 style={{
                   display: 'flex',
                   justifyContent: 'flex-end',
-                  marginTop: '4px',
+                  marginTop: '0.5cqw',
                 }}
               >
                 <button
@@ -275,9 +275,9 @@ function CommentCard({
                   style={{
                     background: 'transparent',
                     border: '1px solid #10b981',
-                    borderRadius: '4px',
-                    padding: '3px 8px',
-                    fontSize: '9px',
+                    borderRadius: '0.5cqw',
+                    padding: '0.375cqw 1cqw',
+                    fontSize: '1.125cqw',
                     color: '#10b981',
                     cursor: 'pointer',
                     fontWeight: 600,
@@ -334,12 +334,12 @@ export default function CommentSidebar({
       ref={sidebarRef}
       style={{
         position: 'absolute',
-        right: '-300px',
+        right: '-55cqw',
         top: 0,
-        width: '280px',
+        width: '52.5cqw',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
+        gap: '0.75cqw',
       }}
     >
       {sortedThreads.map((thread) => (
