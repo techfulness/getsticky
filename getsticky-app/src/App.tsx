@@ -269,6 +269,14 @@ function AppContent() {
 
         return sortNodesParentFirst([...prev, newNode]);
       });
+
+      // Auto-focus on the new node if flagged
+      const content = typeof dbNode.content === 'string' ? JSON.parse(dbNode.content) : dbNode.content;
+      if (content.focusOnCreate) {
+        requestAnimationFrame(() => {
+          fitViewRef.current({ nodes: [{ id: dbNode.id }], padding: 0.3, duration: 400 });
+        });
+      }
     });
 
     // Handle node_updated events

@@ -1066,6 +1066,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             comments: [],
             position: reviewPos,
             width: 800,
+            focusOnCreate: true,
           }),
           context: reviewContext || '',
           parent_id: null,
