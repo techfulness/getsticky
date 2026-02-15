@@ -87,6 +87,23 @@ function sortNodesParentFirst(nodes: Node[]): Node[] {
   return [...parents, ...rest, ...children];
 }
 
+/** Compute ideal width for a richtext node so the longest line fits without wrapping */
+function computeRichTextWidth(content: any): number {
+  let text = '';
+  if (content.plainText) text = content.plainText;
+  else if (typeof content.content === 'string') text = content.content.replace(/<[^>]*>/g, '');
+  else if (typeof content.text === 'string') text = content.text.replace(/<[^>]*>/g, '');
+
+  if (!text) return 800;
+
+  const lines = text.split('\n');
+  const longestLine = Math.max(...lines.map((l: string) => l.length));
+
+  // At 14px sans-serif, avg char width ~7.7px, plus 40px padding (20px each side)
+  const idealWidth = longestLine * 7.7 + 40;
+  return Math.max(600, Math.min(1800, Math.round(idealWidth)));
+}
+
 // Convert a DB node to a React Flow node, applying container parent-child relationships
 function dbNodeToFlowNode(dbNode: any, allDbNodes?: any[]): Node {
   const content = typeof dbNode.content === 'string' ? JSON.parse(dbNode.content) : dbNode.content;
@@ -107,11 +124,10 @@ function dbNodeToFlowNode(dbNode: any, allDbNodes?: any[]): Node {
     };
   }
 
-  // RichText nodes need explicit dimensions (component uses width/height: 100%)
+  // RichText nodes need explicit width (height is auto via CSS)
   if (flowType === 'richTextNode') {
     node.style = {
-      width: content.width || 400,
-      height: content.height || 300,
+      width: content.width || computeRichTextWidth(content),
     };
   }
 
@@ -134,7 +150,7 @@ const demoNodes: Node[] = [
     id: 'question-1',
     type: 'richTextNode',
     position: { x: 100, y: 200 },
-    style: { width: 400, height: 300 },
+    style: { width: 800 },
     data: {
       content: '',
       placeholder: 'Ask Claude about your codebase...',
@@ -414,12 +430,20 @@ function AppContent() {
         // Persist resize to backend for resizable node types
         setNodes((nds) => {
           const node = nds.find((n) => n.id === change.id);
-          if (node && (node.type === 'containerNode' || node.type === 'richTextNode')) {
+          if (node && node.type === 'containerNode') {
             apiRef.current.updateNode({
               id: change.id,
               data: {
                 width: change.dimensions!.width,
                 height: change.dimensions!.height,
+              },
+            });
+          } else if (node && node.type === 'richTextNode') {
+            // Only persist width — height is auto via CSS
+            apiRef.current.updateNode({
+              id: change.id,
+              data: {
+                width: change.dimensions!.width,
               },
             });
           }
@@ -428,7 +452,19 @@ function AppContent() {
       }
     });
 
-    setNodes((nds) => applyNodeChanges([...changes, ...extraRemoves], nds));
+    setNodes((nds) => {
+      const updated = applyNodeChanges([...changes, ...extraRemoves], nds);
+      // Strip height from richTextNodes so React Flow measures actual DOM height
+      // (needed for MiniMap accuracy — CSS fit-content overrides height visually
+      // but React Flow's internal state would be stale otherwise)
+      return updated.map((node) => {
+        if (node.type === 'richTextNode' && node.style?.height != null) {
+          const { height, ...rest } = node.style;
+          return { ...node, style: rest };
+        }
+        return node;
+      });
+    });
   }, []);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {

@@ -35,7 +35,7 @@ function getNodeDimensions(
   if (type === 'container') {
     return { w: content.width || 600, h: content.height || 400 };
   }
-  if (type === 'richtext') return { w: 500, h: 400 };
+  if (type === 'richtext') return { w: content.width || 400, h: 300 };
   if (type === 'diagramBox') return { w: 180, h: 80 };
   if (type === 'stickyNote') return { w: 200, h: 200 };
   return { w: defaultWidth, h: defaultHeight };

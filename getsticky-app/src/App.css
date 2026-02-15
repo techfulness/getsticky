@@ -29,6 +29,12 @@ body, html, #root {
   background: #64748b !important;
 }
 
+/* RichTextNode: auto-height, font scales with width */
+.react-flow__node-richTextNode {
+  height: fit-content !important;
+  container-type: inline-size;
+}
+
 /* RichText resize controls — invisible but grabbable */
 .react-flow__node-richTextNode .react-flow__resize-control.line {
   border-color: transparent !important;
@@ -57,7 +63,7 @@ body, html, #root {
 }
 
 .tiptap p {
-  margin: 0 0 12px 0;
+  margin: 0 0 0.857em 0;
 }
 
 .tiptap p:last-child {
@@ -67,27 +73,27 @@ body, html, #root {
 .tiptap code {
   background-color: #2d3748;
   color: #f7fafc;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 13px;
+  padding: 0.143em 0.429em;
+  border-radius: 0.286em;
+  font-size: 0.929em;
   font-family: 'Monaco', 'Courier New', monospace;
 }
 
 .tiptap pre {
   background: #1a202c;
   border: 1px solid #2d3748;
-  border-radius: 8px;
+  border-radius: 0.571em;
   color: #e2e8f0;
   font-family: 'Monaco', 'Courier New', monospace;
-  padding: 16px;
-  margin: 12px 0;
+  padding: 1.143em;
+  margin: 0.857em 0;
   overflow-x: auto;
 }
 
 .tiptap pre code {
   background: none;
   padding: 0;
-  font-size: 13px;
+  font-size: 0.929em;
   color: inherit;
 }
 
@@ -103,12 +109,12 @@ body, html, #root {
 
 .tiptap ul,
 .tiptap ol {
-  margin-left: 20px;
-  margin-bottom: 12px;
+  margin-left: 1.429em;
+  margin-bottom: 0.857em;
 }
 
 .tiptap li {
-  margin-bottom: 4px;
+  margin-bottom: 0.286em;
 }
 
 .tiptap span[data-comment-id] {

@@ -11,7 +11,7 @@ import { useAPI } from '../contexts/APIContext';
 import CommentMark from '../extensions/CommentMark';
 import CommentSidebar from '../components/CommentSidebar';
 import type { CommentThread, CommentMessage } from '../types/comments';
-import { useGrabToDrag, useWheelPassthroughPinch } from '../lib/gestures';
+import { useGrabToDrag } from '../lib/gestures';
 
 const lowlight = createLowlight(common);
 
@@ -55,7 +55,6 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
   const [loadingThreadIds, setLoadingThreadIds] = useState<Set<string>>(new Set());
   const [threadPositions, setThreadPositions] = useState<Map<string, number>>(new Map());
   const editorWrapperRef = useRef<HTMLDivElement>(null);
-  useWheelPassthroughPinch(editorWrapperRef, !!selected);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -104,7 +103,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
     },
     editorProps: {
       attributes: {
-        style: 'outline: none; min-height: 80px;',
+        style: 'outline: none; min-height: 5.7em;',
       },
       handleClick: (view, pos) => {
         // Check if clicked on a comment mark
@@ -331,7 +330,6 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
         borderRadius: '12px',
         padding: '0',
         width: '100%',
-        height: '100%',
         cursor: selected ? 'default' : 'grab',
         boxShadow: selected
           ? '0 8px 24px rgba(250, 204, 21, 0.15), 0 0 0 1px rgba(250, 204, 21, 0.2)'
@@ -348,8 +346,8 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
     >
       <NodeResizer
         isVisible={selected}
-        minWidth={300}
-        minHeight={200}
+        minWidth={150}
+        minHeight={50}
         lineStyle={{
           borderColor: 'transparent',
           borderWidth: 6,
@@ -366,7 +364,7 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
       <div
         ref={headerRef}
         style={{
-          padding: '12px 20px',
+          padding: '1.5cqw 2.5cqw',
           borderBottom: '1px solid #2d3748',
           background: 'rgba(250, 204, 21, 0.05)',
           borderRadius: '12px 12px 0 0',
@@ -389,10 +387,10 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
             outline: 'none',
             resize: 'none',
             color: accentColor,
-            fontSize: '11px',
+            fontSize: '1.375cqw',
             fontWeight: 600,
             textTransform: 'uppercase',
-            letterSpacing: '0.5px',
+            letterSpacing: '0.0625cqw',
             padding: 0,
             width: '100%',
             lineHeight: '1.4',
@@ -500,13 +498,10 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
         ref={editorWrapperRef}
         className={editableClassName}
         style={{
-          padding: '20px',
-          fontSize: '14px',
+          padding: '2.5cqw',
+          fontSize: '1cqw',
           color: '#e2e8f0',
           lineHeight: '1.7',
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
           cursor: selected ? 'text' : 'inherit',
         }}
       >
@@ -516,19 +511,19 @@ function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData;
       {/* Footer */}
       <div
           style={{
-            padding: '10px 20px',
+            padding: '1.25cqw 2.5cqw',
             borderTop: '1px solid #2d3748',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}
         >
-          <div style={{ fontSize: '11px', color: '#64748b' }}>
+          <div style={{ fontSize: '1.375cqw', color: '#64748b' }}>
             Select text to comment
           </div>
           <div
             style={{
-              fontSize: '11px',
+              fontSize: '1.375cqw',
               color: '#facc15',
               fontWeight: 600,
             }}
