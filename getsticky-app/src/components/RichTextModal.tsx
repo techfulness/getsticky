@@ -41,9 +41,10 @@ export default function RichTextModal({ isOpen, onClose, nodeId, data }: RichTex
       Placeholder.configure({ placeholder: data.placeholder || 'Start typing...' }),
       CodeBlockLowlight.configure({ lowlight }),
     ],
-    content: data.plainText
-      ? markdownToHtml(data.plainText)
-      : (data.content || data.text || ''),
+    content: data.content
+      || (data.plainText ? markdownToHtml(data.plainText) : '')
+      || data.text
+      || '',
     onUpdate: ({ editor }) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
@@ -84,7 +85,7 @@ export default function RichTextModal({ isOpen, onClose, nodeId, data }: RichTex
   return (
     <div
       ref={backdropRef}
-      onClick={handleBackdropClick}
+      onClick={(e) => { e.stopPropagation(); handleBackdropClick(e); }}
       style={{
         position: 'fixed',
         inset: 0,

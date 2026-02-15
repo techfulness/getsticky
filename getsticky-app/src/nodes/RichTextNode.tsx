@@ -38,6 +38,8 @@ export type RichTextNodeData = {
   width?: number;
   height?: number;
   inList?: boolean;
+  collapsed?: boolean;
+  expandedWidth?: number;
   order?: number;
   status?: string;
 };
@@ -51,8 +53,8 @@ function RichTextListCard({ data, id, selected }: { data: RichTextNodeData; id: 
   return (
     <div
       style={{
-        width: '100%',
-        height: '100%',
+        width: 200,
+        height: 200,
         background: 'linear-gradient(135deg, #1e1b2e 0%, #0f0e1a 100%)',
         border: selected ? '1px solid #facc15' : '1px solid #2d3748',
         borderRadius: '8px',
@@ -70,7 +72,7 @@ function RichTextListCard({ data, id, selected }: { data: RichTextNodeData; id: 
         {data.title || 'Rich Text'}
       </div>
       <div style={{ fontSize: '10px', color: '#94a3b8', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const }}>
-        {data.plainText || data.text || data.content?.replace(/<[^>]*>/g, '') || 'Empty...'}
+        {data.plainText || data.text || (typeof data.content === 'string' ? data.content.replace(/<[^>]*>/g, '') : '') || 'Empty...'}
       </div>
       <div style={{ fontSize: '9px', color: '#475569', marginTop: 'auto' }}>
         Click to expand
@@ -88,10 +90,118 @@ function RichTextListCard({ data, id, selected }: { data: RichTextNodeData; id: 
   );
 }
 
+// Collapsed view — sticky-note sized (200x200), shows title + expand button
+function RichTextCollapsed({ data, id, selected }: { data: RichTextNodeData; id: string; selected?: boolean }) {
+  const api = useAPI();
+
+  const handleExpand = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    api.updateNode({
+      id,
+      data: { collapsed: false, width: data.expandedWidth || undefined },
+    });
+  }, [api, id, data.expandedWidth]);
+
+  return (
+    <div
+      onClick={handleExpand}
+      style={{
+        width: 200,
+        height: 200,
+        background: 'linear-gradient(135deg, #1e1b2e 0%, #0f0e1a 100%)',
+        border: selected ? '1px solid #facc15' : '1px dashed #6366f1',
+        borderRadius: '12px',
+        padding: '14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        cursor: 'pointer',
+        overflow: 'hidden',
+        boxShadow: selected
+          ? '0 4px 12px rgba(250, 204, 21, 0.15)'
+          : '0 2px 8px rgba(99, 102, 241, 0.15)',
+        position: 'relative',
+      }}
+    >
+      {/* Document icon */}
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.7 }}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="16" y2="17" />
+      </svg>
+
+      {/* Title */}
+      <div style={{
+        color: '#facc15',
+        fontSize: '12px',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        letterSpacing: '0.3px',
+        lineHeight: '1.3',
+        overflow: 'hidden',
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical' as const,
+      }}>
+        {data.title || 'Untitled'}
+      </div>
+
+      {/* Preview text */}
+      <div style={{
+        color: '#94a3b8',
+        fontSize: '10px',
+        lineHeight: '1.4',
+        overflow: 'hidden',
+        display: '-webkit-box',
+        WebkitLineClamp: 4,
+        WebkitBoxOrient: 'vertical' as const,
+        flex: 1,
+      }}>
+        {data.plainText || data.text || (typeof data.content === 'string' ? data.content.replace(/<[^>]*>/g, '') : '') || ''}
+      </div>
+
+      {/* Expand icon (card-level onClick handles the action) */}
+      <button
+        className="nodrag"
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          background: 'rgba(99, 102, 241, 0.2)',
+          border: '1px solid rgba(99, 102, 241, 0.3)',
+          borderRadius: '4px',
+          padding: '3px 5px',
+          cursor: 'pointer',
+          color: '#a5b4fc',
+          fontSize: '12px',
+          lineHeight: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title="Expand"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 3 21 3 21 9" />
+          <polyline points="9 21 3 21 3 15" />
+          <line x1="21" y1="3" x2="14" y2="10" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function RichTextNodeComponent({ data, id, selected }: { data: RichTextNodeData; id: string; selected?: boolean }) {
   // Render compact card when inside a list — separate component to avoid conditional hooks
   if (data.inList) {
     return <RichTextListCard data={data} id={id} selected={selected} />;
+  }
+
+  // Render collapsed (sticky-note sized) view
+  if (data.collapsed) {
+    return <RichTextCollapsed data={data} id={id} selected={selected} />;
   }
 
   return <RichTextFullEditor data={data} id={id} selected={selected} />;
@@ -144,9 +254,10 @@ function RichTextFullEditor({ data, id, selected }: { data: RichTextNodeData; id
       }),
       CommentMark,
     ],
-    content: data.plainText
-      ? markdownToHtml(data.plainText)
-      : (data.content || data.text || ''),
+    content: data.content
+      || (data.plainText ? markdownToHtml(data.plainText) : '')
+      || data.text
+      || '',
     onTransaction: ({ transaction }) => {
       if (transaction.docChanged) {
         // Remap comment thread positions using the actual transaction mapping
@@ -421,6 +532,9 @@ function RichTextFullEditor({ data, id, selected }: { data: RichTextNodeData; id
           borderBottom: '1px solid #2d3748',
           background: 'rgba(250, 204, 21, 0.05)',
           borderRadius: '12px 12px 0 0',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '1cqw',
         }}
       >
         <textarea
@@ -443,13 +557,50 @@ function RichTextFullEditor({ data, id, selected }: { data: RichTextNodeData; id
             textTransform: 'uppercase',
             letterSpacing: '0.0625cqw',
             padding: 0,
-            width: '100%',
+            flex: 1,
             lineHeight: '1.4',
             fontFamily: 'inherit',
             cursor: selected ? 'text' : 'inherit',
             fieldSizing: 'content',
           }}
         />
+        {/* Collapse button */}
+        <button
+          className="nodrag"
+          onClick={(e) => {
+            e.stopPropagation();
+            const currentWidth = containerRef.current?.getBoundingClientRect().width;
+            api.updateNode({
+              id,
+              data: {
+                collapsed: true,
+                expandedWidth: currentWidth ? Math.round(currentWidth) : data.width,
+              },
+            });
+          }}
+          style={{
+            background: 'rgba(100, 116, 139, 0.2)',
+            border: '1px solid rgba(100, 116, 139, 0.3)',
+            borderRadius: '0.5cqw',
+            padding: '0.375cqw 0.5cqw',
+            cursor: 'pointer',
+            color: '#94a3b8',
+            fontSize: '1.25cqw',
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+          title="Collapse to card"
+        >
+          <svg width="1.25cqw" height="1.25cqw" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.25cqw', height: '1.25cqw' }}>
+            <polyline points="4 14 10 14 10 20" />
+            <polyline points="20 10 14 10 14 4" />
+            <line x1="14" y1="10" x2="21" y2="3" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+        </button>
       </div>
 
       {/* BubbleMenu for comments */}

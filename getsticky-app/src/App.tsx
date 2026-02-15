@@ -93,6 +93,12 @@ function sortNodesParentFirst(nodes: Node[]): Node[] {
   return [...parents, ...rest, ...children];
 }
 
+/** Clear stale list-membership flags from node data (used when a node has no list parent). */
+function clearListFlags(data: Record<string, any>): void {
+  data.inList = undefined;
+  data.order = undefined;
+}
+
 /** Compute ideal width for a richtext node so the longest line fits without wrapping */
 function computeRichTextWidth(content: any): number {
   let text = '';
@@ -103,7 +109,7 @@ function computeRichTextWidth(content: any): number {
   if (!text) return 800;
 
   const lines = text.split('\n');
-  const longestLine = Math.max(...lines.map((l: string) => l.length));
+  const longestLine = lines.reduce((max: number, l: string) => Math.max(max, l.length), 0);
 
   // At 14px sans-serif, avg char width ~7.7px, plus 40px padding (20px each side)
   const idealWidth = longestLine * 7.7 + 40;
@@ -132,8 +138,12 @@ function dbNodeToFlowNode(dbNode: any, allDbNodes?: any[]): Node {
 
   // RichText nodes need explicit width (height is auto via CSS)
   if (flowType === 'richTextNode') {
+    // Clear stale inList flag when node has no list parent
+    if (content.inList && !dbNode.parent_id) {
+      clearListFlags(content);
+    }
     node.style = {
-      width: content.width || computeRichTextWidth(content),
+      width: (content.collapsed || content.inList) ? 200 : (content.width || computeRichTextWidth(content)),
     };
   }
 
@@ -278,11 +288,27 @@ function AppContent() {
           // If we recently changed parentId locally, skip position + parent overwrite from echo
           const isGuarded = recentParentChanges.current.has(dbNode.id);
 
+          // Server sends the full content JSON — use it as base, overlay client-only fields
+          const mergedData = { ...node.data, ...updatedContent };
+          // inList must match actual parent state — clear when node has no list parent
+          const actualParent = dbNode.parent_id || node.parentId || null;
+          if (!actualParent) {
+            clearListFlags(mergedData);
+          }
+
           const patched: Node = {
             ...node,
-            data: { ...node.data, ...updatedContent },
+            data: mergedData,
             position: isGuarded ? node.position : (updatedContent.position || node.position),
           };
+
+          // Recalculate width when richTextNode collapsed/inList state changes
+          if (node.type === 'richTextNode') {
+            const rtWidth = (mergedData.collapsed || mergedData.inList)
+              ? 200
+              : (mergedData.expandedWidth || mergedData.width || computeRichTextWidth(mergedData));
+            patched.style = { ...patched.style, width: rtWidth };
+          }
 
           // Detect parent_id changes (drag into/out of list)
           // Skip if we just changed parentId locally (avoid race with WS echo)
@@ -315,6 +341,9 @@ function AppContent() {
                 delete patched.parentId;
                 delete patched.extent;
                 delete patched.expandParent;
+                // Clear stale list flags
+                patched.data = { ...patched.data };
+                clearListFlags(patched.data);
               }
             }
           }
@@ -618,11 +647,14 @@ function AppContent() {
         data: { order: undefined, inList: undefined },
         position: { x: absX, y: absY },
       });
+      const detachedData = { ...draggedNode.data };
+      clearListFlags(detachedData);
       reparentNode(draggedNode.id, {
         parentId: undefined,
         extent: undefined,
         expandParent: undefined,
         position: { x: absX, y: absY },
+        data: detachedData,
       });
 
       // Reflow remaining siblings to fill the gap
