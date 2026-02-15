@@ -576,7 +576,7 @@ function AppContent() {
 
   // Try to detach a child node from its parent list when dragged outside bounds.
   // Returns true if detached, false if still inside.
-  const handleDetachFromList = useCallback((draggedNode: Node, parentNode: Node, zoom: number): boolean => {
+  const handleDetachFromList = useCallback((draggedNode: Node, parentNode: Node, zoom: number, allNodes: Node[]): boolean => {
     const parentEl = document.querySelector(`[data-id="${parentNode.id}"]`);
     const draggedEl = document.querySelector(`[data-id="${draggedNode.id}"]`);
     if (!parentEl || !draggedEl) return false;
@@ -603,6 +603,24 @@ function AppContent() {
         expandParent: undefined,
         position: { x: absX, y: absY },
       });
+
+      // Reflow remaining siblings to fill the gap
+      const siblings = allNodes
+        .filter((n) => n.parentId === parentNode.id && n.id !== draggedNode.id)
+        .sort((a, b) => ((a.data as any).order ?? 999) - ((b.data as any).order ?? 999));
+      const layout = computeListLayout(siblings.length);
+      siblings.forEach((sibling, index) => {
+        const newPos = layout.positions[index];
+        apiRef.current.updateNode({ id: sibling.id, data: { order: index }, position: newPos });
+      });
+      setNodes((prev) =>
+        prev.map((node) => {
+          const idx = siblings.findIndex((s) => s.id === node.id);
+          if (idx === -1) return node;
+          return { ...node, position: layout.positions[idx], data: { ...node.data, order: idx } };
+        })
+      );
+
       return true;
     }
     return false;
@@ -672,7 +690,7 @@ function AppContent() {
     if (draggedNode.parentId) {
       const parentNode = allNodes.find((n) => n.id === draggedNode.parentId);
       if (parentNode && parentNode.type === 'listNode') {
-        handleDetachFromList(draggedNode, parentNode, zoom);
+        handleDetachFromList(draggedNode, parentNode, zoom, allNodes);
         return;
       }
     }
