@@ -679,6 +679,47 @@ function AppContent() {
     });
   }, [reparentNode]);
 
+  // Reorder a child within its parent list based on where it was dropped.
+  const handleReorderInList = useCallback((draggedNode: Node, parentNode: Node, allNodes: Node[]) => {
+    const siblings = allNodes
+      .filter((n) => n.parentId === parentNode.id)
+      .sort((a, b) => ((a.data as any).order ?? 999) - ((b.data as any).order ?? 999));
+    if (siblings.length <= 1) return;
+
+    const currentOrder = (draggedNode.data as any).order ?? 0;
+    const dragY = draggedNode.position.y;
+
+    // Find the slot whose layout Y is closest to the dragged position
+    const layout = computeListLayout(siblings.length);
+    let targetOrder = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < layout.positions.length; i++) {
+      const dist = Math.abs(dragY - layout.positions[i].y);
+      if (dist < minDist) { minDist = dist; targetOrder = i; }
+    }
+
+    if (targetOrder === currentOrder) {
+      // Snap back to its own slot position
+      const correctPos = layout.positions[currentOrder];
+      setNodes((prev) => prev.map((n) => (n.id === draggedNode.id ? { ...n, position: correctPos } : n)));
+      return;
+    }
+
+    // Reorder: remove from current position, insert at target
+    const ordered = siblings.filter((s) => s.id !== draggedNode.id);
+    ordered.splice(targetOrder, 0, draggedNode);
+    ordered.forEach((sibling, index) => {
+      apiRef.current.updateNode({ id: sibling.id, data: { order: index }, position: layout.positions[index] });
+    });
+    setNodes((prev) =>
+      prev.map((node) => {
+        const idx = ordered.findIndex((s) => s.id === node.id);
+        if (idx === -1) return node;
+        return { ...node, position: layout.positions[idx], data: { ...node.data, order: idx } };
+      })
+    );
+  }, []);
+
   // Drag-to-list: on drop, check if dragged node overlaps a list
   const onNodeDragStop = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
     if (draggedNode.type === 'listNode' || draggedNode.type === 'containerNode') return;
@@ -686,27 +727,35 @@ function AppContent() {
     const allNodes = getNodes();
     const { zoom } = getViewport();
 
-    // Already inside a list — check if dragged outside
-    if (draggedNode.parentId) {
-      const parentNode = allNodes.find((n) => n.id === draggedNode.parentId);
-      if (parentNode && parentNode.type === 'listNode') {
-        handleDetachFromList(draggedNode, parentNode, zoom, allNodes);
-        return;
-      }
-    }
-
-    // Not in a list — check if dropped onto one
+    // Get the dragged element's screen position (for list overlap checks)
     const draggedEl = document.querySelector(`[data-id="${draggedNode.id}"]`);
     if (!draggedEl) return;
     const draggedRect = draggedEl.getBoundingClientRect();
     const centerX = draggedRect.left + draggedRect.width / 2;
     const centerY = draggedRect.top + draggedRect.height / 2;
 
+    const previousParentId = draggedNode.parentId;
+
+    // Already inside a list — check if dragged outside or reorder within
+    if (previousParentId) {
+      const parentNode = allNodes.find((n) => n.id === previousParentId);
+      if (parentNode && parentNode.type === 'listNode') {
+        const detached = handleDetachFromList(draggedNode, parentNode, zoom, allNodes);
+        if (!detached) {
+          // Still inside the list — reorder within it
+          handleReorderInList(draggedNode, parentNode, allNodes);
+          return;
+        }
+        // Detached — fall through to check if landed on another list
+      }
+    }
+
+    // Check if dropped onto a list
     const targetList = findTargetList(centerX, centerY, allNodes, draggedNode.id);
-    if (!targetList || draggedNode.parentId === targetList.id) return;
+    if (!targetList || targetList.id === previousParentId) return;
 
     handleAttachToList(draggedNode, targetList, allNodes);
-  }, [getNodes, getViewport, handleDetachFromList, findTargetList, handleAttachToList]);
+  }, [getNodes, getViewport, handleDetachFromList, findTargetList, handleAttachToList, handleReorderInList]);
 
   // Feature 5: Selection change handler
   const onSelectionChange = useCallback(({ nodes: selected }: OnSelectionChangeParams) => {
