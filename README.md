@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/techfulness/getsticky/main/sticky-logo.png" alt="GetSticky logo" width="160" />
+  <img src="https://raw.githubusercontent.com/techfulness/getsticky/main/sticky-logo-cropped.png" alt="GetSticky logo" width="200" />
 </p>
 
 <h1 align="center">GetSticky</h1>
