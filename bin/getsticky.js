@@ -63,22 +63,18 @@ if (args.includes('--help') || args.includes('-h')) {
 
   Options:
     --port <number>   Port to run on (default: 2528)
-    --data <path>     Data directory path (default: ./getsticky-data)
+    --data <path>     Data directory path (default: ~/.getsticky/data)
     --help, -h        Show this help message
 
   MCP Server:
-    claude mcp add getsticky npx getsticky mcp
+    claude mcp add --scope user getsticky npx getsticky mcp
 
     Or configure in .mcp.json:
     {
       "mcpServers": {
         "getsticky": {
           "command": "npx",
-          "args": ["getsticky", "mcp"],
-          "env": {
-            "DB_PATH": "./getsticky-data",
-            "WS_SERVER_URL": "http://localhost:2528"
-          }
+          "args": ["getsticky", "mcp"]
         }
       }
     }
@@ -87,7 +83,8 @@ if (args.includes('--help') || args.includes('-h')) {
 }
 
 const port = getArg('port', '2528');
-const dataDir = getArg('data', './getsticky-data');
+const defaultDataDir = path.join(require('os').homedir(), '.getsticky', 'data');
+const dataDir = getArg('data', defaultDataDir);
 
 // Resolve static dir relative to this script
 const staticDir = path.resolve(__dirname, '..', 'app');

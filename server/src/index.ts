@@ -4,6 +4,8 @@
  * Runs WebSocket server for frontend communication
  */
 
+import { homedir } from 'os';
+import path from 'path';
 import { initDB } from './db/index';
 import { GetStickyWSServer } from './websocket/server';
 import dotenv from 'dotenv';
@@ -12,7 +14,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const WS_PORT = parseInt(process.env.WS_PORT || '8080', 10);
-const DB_PATH = process.env.DB_PATH || './getsticky-data';
+const DB_PATH = process.env.DB_PATH || path.join(homedir(), '.getsticky', 'data');
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const STATIC_DIR = process.env.GETSTICKY_STATIC_DIR || undefined;
 

@@ -3,6 +3,7 @@
  * Handles structured node data, edges, and context storage
  */
 
+import { homedir } from 'os';
 import Database from 'better-sqlite3';
 import { Node, Edge, ContextEntry, NodeType, ContextSource, Board, Project } from '../types';
 import path from 'path';
@@ -11,7 +12,7 @@ import fs from 'fs';
 export class SQLiteDB {
   private db: Database.Database;
 
-  constructor(dbPath: string = './getsticky-data/getsticky.db') {
+  constructor(dbPath: string = path.join(homedir(), '.getsticky', 'data', 'getsticky.db')) {
     // Ensure directory exists
     const dir = path.dirname(dbPath);
     if (!fs.existsSync(dir)) {

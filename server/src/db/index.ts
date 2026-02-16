@@ -6,6 +6,8 @@
  * enabling cross-process real-time notifications (MCP → WS → frontend).
  */
 
+import { homedir } from 'os';
+import path from 'path';
 import { EventEmitter } from 'events';
 import { SQLiteDB } from './sqlite';
 import { LanceDBManager } from './lancedb';
@@ -17,7 +19,7 @@ export class DatabaseManager extends EventEmitter {
   private lancedb: LanceDBManager;
   private initialized: boolean = false;
 
-  constructor(dbPath: string = './getsticky-data') {
+  constructor(dbPath: string = path.join(homedir(), '.getsticky', 'data')) {
     super();
     this.sqlite = new SQLiteDB(`${dbPath}/getsticky.db`);
     this.lancedb = new LanceDBManager(`${dbPath}/lancedb`);

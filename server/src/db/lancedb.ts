@@ -3,6 +3,8 @@
  * Handles semantic search across all node contexts
  */
 
+import { homedir } from 'os';
+import path from 'path';
 import * as lancedb from '@lancedb/lancedb';
 import { VectorContext, ContextSource } from '../types';
 import { OpenAI } from 'openai';
@@ -20,7 +22,7 @@ export class LanceDBManager {
   private readonly dbPath: string;
   private readonly enabled: boolean;
 
-  constructor(dbPath: string = './getsticky-data/lancedb', apiKey?: string) {
+  constructor(dbPath: string = path.join(homedir(), '.getsticky', 'data', 'lancedb'), apiKey?: string) {
     this.dbPath = dbPath;
     const key = apiKey || process.env.OPENAI_API_KEY;
     this.enabled = !!key;

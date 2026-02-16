@@ -45,21 +45,19 @@ Then open **http://localhost:2528** in your browser.
 ### Connect Claude Code
 
 ```bash
-claude mcp add getsticky npx getsticky mcp
+claude mcp add --scope user getsticky npx getsticky mcp
 ```
 
-Or add manually to your project's `.mcp.json`:
+Using `--scope user` makes the MCP server available globally across all your projects. Every Claude Code session will connect to the same canvas and database.
+
+Or add manually to a project's `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "getsticky": {
       "command": "npx",
-      "args": ["getsticky", "mcp"],
-      "env": {
-        "DB_PATH": "./getsticky-data",
-        "WS_SERVER_URL": "http://localhost:2528"
-      }
+      "args": ["getsticky", "mcp"]
     }
   }
 }
@@ -72,7 +70,7 @@ Claude Code can now create nodes, diagrams, sticky notes, and more — directly 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--port <number>` | `2528` | Port to run the server on |
-| `--data <path>` | `./getsticky-data` | Data directory for SQLite and vector storage |
+| `--data <path>` | `~/.getsticky/data` | Data directory for SQLite and vector storage |
 
 Initialize project detection in any repo:
 
